@@ -12,16 +12,25 @@ const app = express();
 const httpServer = createServer(app);
 
 const PORT = process.env.PORT || 4000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 
-app.use(cors({ origin: CLIENT_URL }));
+// Support comma-separated origins for multi-env deploys, e.g.:
+//   CLIENT_URL=https://ipl-auction.vercel.app,http://localhost:3000
+const rawOrigins = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map((s) => s.trim());
+const corsOrigin = rawOrigins.length === 1 ? rawOrigins[0] : rawOrigins;
+
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 
 export const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: {
-    origin: CLIENT_URL,
+    origin: corsOrigin,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
+  // Allow WebSocket with polling fallback — required for some cloud providers
+  transports: ['websocket', 'polling'],
+  pingTimeout: 20000,
+  pingInterval: 25000,
 });
 
 // Health check
