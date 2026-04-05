@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Bid, Player } from '@/types';
 import { BidTimer } from './BidTimer';
 
@@ -19,6 +19,17 @@ export function BidPanel({
   myBudget, myTeamId, isPaused, onBid,
 }: BidPanelProps) {
   const [bidding, setBidding] = useState(false);
+  const [flashKey, setFlashKey] = useState(0);
+  const prevBidRef = useRef<number | null>(null);
+
+  // Flash the bid amount when a new bid lands
+  useEffect(() => {
+    const newAmount = currentBid?.amount ?? null;
+    if (newAmount !== null && newAmount !== prevBidRef.current) {
+      setFlashKey((k) => k + 1);
+      prevBidRef.current = newAmount;
+    }
+  }, [currentBid?.amount]);
 
   const nextBid = currentBid
     ? +(currentBid.amount + bidIncrement).toFixed(2)
@@ -50,7 +61,7 @@ export function BidPanel({
             <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'rgba(232,232,240,0.4)' }}>
               Current Bid
             </p>
-            <div key={currentBid.amount} className="bid-flip">
+            <div key={flashKey} className="bid-flip animate-bid-flash">
               <span style={{
                 fontFamily: 'var(--font-bebas)',
                 fontSize: '3.5rem',
