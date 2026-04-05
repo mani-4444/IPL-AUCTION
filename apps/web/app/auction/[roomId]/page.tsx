@@ -11,6 +11,7 @@ import { TeamBudgetList } from '@/components/auction/TeamBudgetList';
 import { RoundIndicator } from '@/components/auction/RoundIndicator';
 import { Confetti } from '@/components/ui/Confetti';
 import { PlayerCardSkeleton } from '@/components/ui/Skeleton';
+import { useReconnect } from '@/hooks/useReconnect';
 import type { Room, Player, Bid, AuctionRound } from '@/types';
 import { ROUND_ROLES } from '@/types';
 
@@ -26,6 +27,7 @@ export default function AuctionPage() {
     setCurrentPlayer, setCurrentBid, setTimer, setPlayerSold, setPlayerUnsold, setPaused,
   } = useAuctionStore();
 
+  useReconnect();
   const [showSoldBanner, setShowSoldBanner] = useState(false);
   const [showUnsoldBanner, setShowUnsoldBanner] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);

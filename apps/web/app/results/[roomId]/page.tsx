@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { connectSocket } from '@/lib/socket';
 import { useRoomStore } from '@/store/roomStore';
+import { useReconnect } from '@/hooks/useReconnect';
+import { clearSession } from '@/lib/session';
 import { RoleBadge } from '@/components/ui/RoleBadge';
 import type { Team, Room } from '@/types';
 
@@ -144,6 +146,7 @@ export default function ResultsPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { room, setRoom, myUserId } = useRoomStore();
   const [results, setResults] = useState<Team[]>([]);
+  useReconnect();
 
   useEffect(() => {
     const socket = connectSocket();
@@ -197,7 +200,7 @@ export default function ResultsPage() {
 
       {/* Play Again */}
       <button
-        onClick={() => router.push('/')}
+        onClick={() => { clearSession(); router.push('/'); }}
         className="w-full py-4 rounded-xl text-xl tracking-widest uppercase transition-all duration-200"
         style={{
           fontFamily: 'var(--font-bebas)',
