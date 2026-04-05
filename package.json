@@ -1,0 +1,15 @@
+{
+  "name": "ipl-auction",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/web\" \"npm run dev --workspace=apps/server\"",
+    "build": "npm run build --workspace=apps/web && npm run build --workspace=apps/server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
