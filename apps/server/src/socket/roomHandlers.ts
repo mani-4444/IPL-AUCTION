@@ -6,6 +6,7 @@ import {
   removeTeamFromRoom,
   persistRoom,
 } from '../services/roomStore';
+import { calculateAllScores } from '../services/scoringService';
 
 // Grace period before removing a disconnected player (30s)
 const DISCONNECT_GRACE_MS = 30_000;
@@ -117,12 +118,40 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
 
     console.log(`${userName} disconnected — grace period started (${DISCONNECT_GRACE_MS / 1000}s)`);
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       pendingLeaves.delete(userId);
-      const room = removeTeamFromRoom(roomId, userId);
-      if (room) {
-        io.to(room.id).emit('room:updated', room);
-        console.log(`${userName} removed after grace period from room ${room.code}`);
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      // During team-setup: auto-submit XI instead of removing the team
+      if (room.status === 'team-setup') {
+        const team = room.teams.find((t) => t.userId === userId);
+        if (team && team.playingXI.length < 11 && team.players.length >= 11) {
+          const sorted = [...team.players].sort((a, b) => b.rating - a.rating);
+          team.playingXI = sorted.slice(0, 11).map((p) => p.id);
+          team.bench = sorted.slice(11).map((p) => p.id);
+          // No captain/VC assigned — scoring will skip the 2× bonus but won't crash
+          io.to(roomId).emit('team:xi-submitted', team.id);
+          console.log(`Auto-submitted XI for ${userName} (disconnected during team-setup)`);
+
+          const allSubmitted = room.teams.every((t) => t.playingXI.length === 11);
+          if (allSubmitted) {
+            calculateAllScores(room.teams);
+            room.status = 'results';
+            io.to(roomId).emit('results:ready', room.teams);
+            io.to(roomId).emit('room:updated', room);
+            await persistRoom(room);
+            console.log(`All teams submitted (auto) — results ready for room ${room.code}`);
+          }
+        }
+        return; // Don't remove team from room during/after auction
+      }
+
+      // During waiting: remove the team normally
+      const updatedRoom = removeTeamFromRoom(roomId, userId);
+      if (updatedRoom) {
+        io.to(updatedRoom.id).emit('room:updated', updatedRoom);
+        console.log(`${userName} removed after grace period from room ${updatedRoom.code}`);
       } else {
         console.log(`Room closed after grace period (${userName} was last player)`);
       }
