@@ -12,6 +12,7 @@ import { RoundIndicator } from '@/components/auction/RoundIndicator';
 import { Confetti } from '@/components/ui/Confetti';
 import { PlayerCardSkeleton } from '@/components/ui/Skeleton';
 import { useReconnect } from '@/hooks/useReconnect';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 import type { Room, Player, Bid, AuctionRound } from '@/types';
 import { ROUND_ROLES } from '@/types';
 
@@ -28,6 +29,7 @@ export default function AuctionPage() {
   } = useAuctionStore();
 
   useReconnect();
+  const { toasts, showToast, dismissToast } = useToast();
   const [showSoldBanner, setShowSoldBanner] = useState(false);
   const [showUnsoldBanner, setShowUnsoldBanner] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
@@ -69,6 +71,7 @@ export default function AuctionPage() {
     });
 
     socket.on('auction:complete', () => router.push(`/team-setup/${roomId}`));
+    socket.on('error', (msg: string) => showToast(msg));
 
     return () => {
       socket.off('room:updated');
@@ -78,8 +81,9 @@ export default function AuctionPage() {
       socket.off('auction:player-sold');
       socket.off('auction:player-unsold');
       socket.off('auction:complete');
+      socket.off('error');
     };
-  }, [roomId, router, setRoom, setCurrentPlayer, setCurrentBid, setTimer, setPlayerSold, setPlayerUnsold]);
+  }, [roomId, router, setRoom, setCurrentPlayer, setCurrentBid, setTimer, setPlayerSold, setPlayerUnsold, showToast]);
 
   function handleBid(amount: number) {
     connectSocket().emit('auction:bid', amount);
@@ -109,6 +113,8 @@ export default function AuctionPage() {
 
   return (
     <main className="min-h-screen relative overflow-hidden flex flex-col">
+      {/* Toasts */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {/* Confetti canvas */}
       <Confetti active={confettiActive} />
 

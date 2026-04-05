@@ -175,7 +175,6 @@ export function onBid(
 
   room.currentBid = bid;
   io.to(roomId).emit('auction:bid-placed', bid);
-  io.to(roomId).emit('room:updated', room);
 
   // Reset timer
   clearRoomTimer(roomId);

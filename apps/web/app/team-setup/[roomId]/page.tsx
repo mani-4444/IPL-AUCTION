@@ -5,6 +5,7 @@ import { connectSocket } from '@/lib/socket';
 import { useRoomStore } from '@/store/roomStore';
 import { useTeamStore } from '@/store/teamStore';
 import { useReconnect } from '@/hooks/useReconnect';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 import { RoleBadge } from '@/components/ui/RoleBadge';
 import type { Room, TeamPlayer } from '@/types';
 
@@ -18,6 +19,7 @@ export default function TeamSetupPage() {
   } = useTeamStore();
 
   useReconnect();
+  const { toasts, showToast, dismissToast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,12 +41,14 @@ export default function TeamSetupPage() {
       if (r.status === 'results') router.push(`/results/${r.id}`);
     });
     socket.on('team:xi-submitted', (teamId: string) => markTeamSubmitted(teamId));
+    socket.on('error', (msg: string) => showToast(msg));
 
     return () => {
       socket.off('room:updated');
       socket.off('team:xi-submitted');
+      socket.off('error');
     };
-  }, [router, setRoom, markTeamSubmitted]);
+  }, [router, setRoom, markTeamSubmitted, showToast]);
 
   // Auto-populate XI with best-rated players
   useEffect(() => {
@@ -109,6 +113,7 @@ export default function TeamSetupPage() {
 
   return (
     <main className="min-h-screen px-4 py-8 max-w-5xl mx-auto">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {/* Header */}
       <div className="mb-6 animate-slide-up">
         <p className="text-xs tracking-[0.3em] uppercase mb-1" style={{ color: '#FF6B00' }}>Auction Complete</p>
