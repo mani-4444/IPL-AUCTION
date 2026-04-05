@@ -38,6 +38,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Keep-alive ping (hit this before starting a game to wake Render free tier)
+app.get('/ping', (_req, res) => {
+  res.json({ alive: true });
+});
+
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
 
