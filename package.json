@@ -10,6 +10,11 @@
     "build": "npm run build --workspace=apps/web && npm run build --workspace=apps/server"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@supabase/supabase-js": "^2.101.1",
+    "concurrently": "^8.2.2",
+    "dotenv": "^17.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2",
+    "xlsx": "^0.18.5"
   }
 }
