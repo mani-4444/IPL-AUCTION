@@ -7,6 +7,10 @@ import {
   persistRoom,
 } from '../services/roomStore';
 
+// Grace period before removing a disconnected player (30s)
+const DISCONNECT_GRACE_MS = 30_000;
+const pendingLeaves = new Map<string, NodeJS.Timeout>();
+
 export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
   const data = socket.data as unknown as SocketData;
 
@@ -70,10 +74,14 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
   });
 
   socket.on('room:leave', () => {
+    cancelPendingLeave(data.userId);
     handleLeave(io, socket, data);
   });
 
   socket.on('room:rejoin', ({ roomId, userId }) => {
+    // Cancel any pending disconnect for this user
+    cancelPendingLeave(userId);
+
     const room = getRoom(roomId);
     if (!room) {
       socket.emit('error', 'Room no longer exists.');
@@ -101,8 +109,35 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
   });
 
   socket.on('disconnect', () => {
-    handleLeave(io, socket, data);
+    if (!data.userId || !data.roomId) return;
+
+    const userId = data.userId;
+    const roomId = data.roomId;
+    const userName = data.userName;
+
+    console.log(`${userName} disconnected — grace period started (${DISCONNECT_GRACE_MS / 1000}s)`);
+
+    const timer = setTimeout(() => {
+      pendingLeaves.delete(userId);
+      const room = removeTeamFromRoom(roomId, userId);
+      if (room) {
+        io.to(room.id).emit('room:updated', room);
+        console.log(`${userName} removed after grace period from room ${room.code}`);
+      } else {
+        console.log(`Room closed after grace period (${userName} was last player)`);
+      }
+    }, DISCONNECT_GRACE_MS);
+
+    pendingLeaves.set(userId, timer);
   });
+}
+
+function cancelPendingLeave(userId: string): void {
+  const timer = pendingLeaves.get(userId);
+  if (timer) {
+    clearTimeout(timer);
+    pendingLeaves.delete(userId);
+  }
 }
 
 function handleLeave(io: IOServer, socket: IOSocket, data: SocketData): void {

@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { connectSocket } from '@/lib/socket';
 import { useRoomStore } from '@/store/roomStore';
 import { useTeamStore } from '@/store/teamStore';
+import { useReconnect } from '@/hooks/useReconnect';
 import { RoleBadge } from '@/components/ui/RoleBadge';
 import type { Room, TeamPlayer } from '@/types';
 
@@ -16,6 +17,7 @@ export default function TeamSetupPage() {
     togglePlayerInXI, setCaptain, setViceCaptain, markTeamSubmitted, setPlayingXI, setBench,
   } = useTeamStore();
 
+  useReconnect();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 

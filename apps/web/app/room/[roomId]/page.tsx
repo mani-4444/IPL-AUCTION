@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { connectSocket } from '@/lib/socket';
 import { useRoomStore } from '@/store/roomStore';
+import { useReconnect } from '@/hooks/useReconnect';
 import type { Room } from '@/types';
 
 export default function RoomLobbyPage() {
@@ -10,6 +11,7 @@ export default function RoomLobbyPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { room, setRoom, myUserId } = useRoomStore();
   const [copied, setCopied] = useState(false);
+  useReconnect();
 
   useEffect(() => {
     const socket = connectSocket();

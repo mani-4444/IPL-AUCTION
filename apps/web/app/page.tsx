@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { connectSocket } from '@/lib/socket';
 import { useRoomStore } from '@/store/roomStore';
+import { saveSession } from '@/lib/session';
 import type { Room } from '@/types';
 
 export default function LandingPage() {
@@ -22,7 +23,10 @@ export default function LandingPage() {
     socket.on('room:updated', (room: Room) => {
       setRoom(room);
       const myTeam = room.teams.find((t) => t.userId === socket.id);
-      if (myTeam) setMyUser(socket.id!, myTeam.id);
+      if (myTeam) {
+        setMyUser(socket.id!, myTeam.id);
+        saveSession({ roomId: room.id, userId: socket.id!, roomStatus: room.status });
+      }
       router.push(`/room/${room.id}`);
     });
 
