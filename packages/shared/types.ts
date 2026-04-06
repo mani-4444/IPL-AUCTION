@@ -103,6 +103,8 @@ export interface ServerToClientEvents {
   'auction:player-sold': (player: Player, winner: Bid) => void;
   'auction:player-unsold': (player: Player) => void;
   'auction:round-complete': (round: AuctionRound) => void;
+  'auction:round-preview': (players: Player[], round: AuctionRound, seconds: number) => void;
+  'auction:skip-votes': (votes: number, total: number) => void;
   'auction:complete': () => void;
   'team:xi-submitted': (teamId: string) => void;
   'results:ready': (teams: Team[]) => void;
@@ -119,6 +121,7 @@ export interface ClientToServerEvents {
   'auction:next-player': () => void;
   'auction:pause': () => void;
   'auction:resume': () => void;
+  'auction:skip': () => void;
   'team:submit-xi': (data: {
     playingXI: string[];
     captain: string;

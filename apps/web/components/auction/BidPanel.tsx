@@ -1,28 +1,39 @@
 'use client';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import type { Bid, Player } from '@/types';
 import { BidTimer } from './BidTimer';
+
+// Issue 4: fixed increment buttons (+25L, +50L, +1Cr)
+const BID_INCREMENTS = [
+  { label: '+25L', cr: 0.25 },
+  { label: '+50L', cr: 0.50 },
+  { label: '+1Cr', cr: 1.00 },
+] as const;
 
 interface BidPanelProps {
   player: Player;
   currentBid: Bid | null;
   timerSeconds: number;
-  bidIncrement: number;
   myBudget: number;
   myTeamId: string;
   isPaused: boolean;
+  skipVotes: number;
+  totalTeams: number;
   onBid: (amount: number) => void;
+  onSkip: () => void;
 }
 
 export function BidPanel({
-  player, currentBid, timerSeconds, bidIncrement,
-  myBudget, myTeamId, isPaused, onBid,
+  player, currentBid, timerSeconds,
+  myBudget, myTeamId, isPaused,
+  skipVotes, totalTeams,
+  onBid, onSkip,
 }: BidPanelProps) {
-  const [bidding, setBidding] = useState(false);
   const [flashKey, setFlashKey] = useState(0);
+  const [lastBidding, setLastBidding] = useState<number | null>(null);
   const prevBidRef = useRef<number | null>(null);
 
-  // Flash the bid amount when a new bid lands
+  // Flash animation when a new bid lands
   useEffect(() => {
     const newAmount = currentBid?.amount ?? null;
     if (newAmount !== null && newAmount !== prevBidRef.current) {
@@ -31,26 +42,22 @@ export function BidPanel({
     }
   }, [currentBid?.amount]);
 
-  const nextBid = currentBid
-    ? +(currentBid.amount + bidIncrement).toFixed(2)
-    : player.basePrice;
-
-  const canBid = !isPaused
-    && myBudget >= nextBid
-    && currentBid?.teamId !== myTeamId
-    && timerSeconds > 0;
-
-  const handleBid = useCallback(() => {
-    if (!canBid || bidding) return;
-    setBidding(true);
-    onBid(nextBid);
-    setTimeout(() => setBidding(false), 800);
-  }, [canBid, bidding, nextBid, onBid]);
-
   const isLeading = currentBid?.teamId === myTeamId;
+  const timerActive = timerSeconds > 0 && !isPaused;
+
+  // Floor for increment calculation
+  const floor = currentBid ? currentBid.amount : player.basePrice;
+
+  function handleBid(cr: number) {
+    const amount = +(floor + cr).toFixed(2);
+    if (lastBidding === amount) return; // debounce same amount
+    setLastBidding(amount);
+    onBid(amount);
+    setTimeout(() => setLastBidding(null), 800);
+  }
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-5">
       {/* Timer */}
       <BidTimer seconds={timerSeconds} total={10} />
 
@@ -58,27 +65,32 @@ export function BidPanel({
       <div className="text-center w-full">
         {currentBid ? (
           <>
-            <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'rgba(232,232,240,0.4)' }}>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-1"
+              style={{ color: 'rgba(232,232,240,0.4)' }}>
               Current Bid
             </p>
-            <div key={flashKey} className="bid-flip animate-bid-flash">
+            <div key={flashKey} className="animate-bid-flash">
               <span style={{
                 fontFamily: 'var(--font-bebas)',
                 fontSize: '3.5rem',
                 lineHeight: 1,
                 color: isLeading ? '#22C55E' : '#FFD700',
-                textShadow: isLeading ? '0 0 30px rgba(34,197,94,0.5)' : '0 0 30px rgba(255,215,0,0.4)',
+                textShadow: isLeading
+                  ? '0 0 30px rgba(34,197,94,0.5)'
+                  : '0 0 30px rgba(255,215,0,0.4)',
               }}>
                 ₹{currentBid.amount} Cr
               </span>
             </div>
-            <p className="text-sm mt-1 font-semibold" style={{ color: isLeading ? '#4ADE80' : 'rgba(232,232,240,0.5)' }}>
+            <p className="text-sm mt-1 font-semibold"
+              style={{ color: isLeading ? '#4ADE80' : 'rgba(232,232,240,0.5)' }}>
               {isLeading ? '🏆 You are leading!' : `${currentBid.teamName} is leading`}
             </p>
           </>
         ) : (
           <>
-            <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'rgba(232,232,240,0.4)' }}>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-1"
+              style={{ color: 'rgba(232,232,240,0.4)' }}>
               Base Price
             </p>
             <span style={{
@@ -96,45 +108,95 @@ export function BidPanel({
         )}
       </div>
 
-      {/* Bid Button */}
+      {/* Issue 4: 3 fixed increment bid buttons */}
       {isPaused ? (
         <div className="w-full py-4 rounded-xl text-center font-semibold tracking-widest uppercase"
-          style={{ background: 'rgba(42,42,58,0.6)', color: 'rgba(232,232,240,0.3)', border: '1px solid rgba(42,42,58,0.8)' }}>
+          style={{
+            background: 'rgba(42,42,58,0.6)',
+            color: 'rgba(232,232,240,0.3)',
+            border: '1px solid rgba(42,42,58,0.8)',
+          }}>
           ⏸ Auction Paused
         </div>
       ) : (
-        <button
-          onClick={handleBid}
-          disabled={!canBid || bidding}
-          className="w-full py-4 rounded-xl transition-all duration-200 relative overflow-hidden"
-          style={{
-            fontFamily: 'var(--font-bebas)',
-            fontSize: '1.4rem',
-            letterSpacing: '0.1em',
-            background: canBid
-              ? 'linear-gradient(135deg, #FF6B00, #FF8C33)'
-              : 'rgba(255,107,0,0.12)',
-            color: canBid ? '#fff' : 'rgba(255,255,255,0.25)',
-            cursor: canBid ? 'pointer' : 'not-allowed',
-            boxShadow: canBid ? '0 4px 24px rgba(255,107,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)' : 'none',
-            animation: canBid ? 'pulse-orange 2s ease-in-out infinite' : 'none',
-          }}
-          aria-label={`Place bid of ₹${nextBid} Cr`}
-          aria-disabled={!canBid}
-        >
-          {isLeading
-            ? `✓ Leading — Raise to ₹${nextBid} Cr`
-            : canBid
-              ? `BID ₹${nextBid} Cr`
-              : myBudget < nextBid
-                ? `Insufficient Budget`
-                : `BID ₹${nextBid} Cr`}
-        </button>
+        <div className="w-full grid grid-cols-3 gap-2">
+          {BID_INCREMENTS.map(({ label, cr }) => {
+            const amount = +(floor + cr).toFixed(2);
+            const canAfford = myBudget >= amount;
+            const active = timerActive && canAfford && !isLeading;
+            const isSubmitting = lastBidding === amount;
+
+            return (
+              <button
+                key={label}
+                onClick={() => active && handleBid(cr)}
+                disabled={!active || isSubmitting}
+                aria-label={`Bid ₹${amount} Cr`}
+                className="py-3 rounded-xl flex flex-col items-center gap-0.5 transition-all duration-150"
+                style={{
+                  background: active
+                    ? 'linear-gradient(135deg, #FF6B00, #FF8C33)'
+                    : 'rgba(255,107,0,0.08)',
+                  border: `1px solid ${active ? 'rgba(255,107,0,0.6)' : 'rgba(42,42,58,0.6)'}`,
+                  cursor: active ? 'pointer' : 'not-allowed',
+                  opacity: isSubmitting ? 0.6 : 1,
+                  boxShadow: active ? '0 4px 16px rgba(255,107,0,0.35)' : 'none',
+                }}>
+                <span style={{
+                  fontFamily: 'var(--font-bebas)',
+                  fontSize: '1.15rem',
+                  color: active ? '#fff' : 'rgba(232,232,240,0.25)',
+                  letterSpacing: '0.05em',
+                }}>
+                  {label}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.65rem',
+                  color: active ? 'rgba(255,255,255,0.75)' : 'rgba(232,232,240,0.2)',
+                }}>
+                  ₹{amount}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Leading team — can raise own bid */}
+      {isLeading && timerActive && (
+        <p className="text-xs text-center" style={{ color: '#4ADE80' }}>
+          You're leading — others must outbid you
+        </p>
       )}
 
       <p className="text-xs" style={{ color: 'rgba(232,232,240,0.3)' }}>
-        Your budget: <span style={{ color: '#FF6B00', fontFamily: 'var(--font-mono)' }}>₹{myBudget.toFixed(2)} Cr</span>
+        Budget: <span style={{ color: '#FF6B00', fontFamily: 'var(--font-mono)' }}>
+          ₹{myBudget.toFixed(2)} Cr
+        </span>
       </p>
+
+      {/* Issue 5: Skip player vote */}
+      <div className="w-full pt-2" style={{ borderTop: '1px solid rgba(42,42,58,0.5)' }}>
+        <button
+          onClick={onSkip}
+          disabled={!timerActive}
+          className="w-full py-2 rounded-lg text-xs font-semibold tracking-widest uppercase transition-all duration-150"
+          style={{
+            background: 'rgba(42,42,58,0.5)',
+            border: '1px solid rgba(42,42,58,0.8)',
+            color: timerActive ? 'rgba(232,232,240,0.5)' : 'rgba(232,232,240,0.2)',
+            cursor: timerActive ? 'pointer' : 'not-allowed',
+          }}>
+          Skip Player
+        </button>
+        {skipVotes > 0 && (
+          <p className="text-center text-[10px] mt-1.5"
+            style={{ color: 'rgba(232,232,240,0.35)' }}>
+            {skipVotes}/{totalTeams} teams voted to skip
+          </p>
+        )}
+      </div>
     </div>
   );
 }

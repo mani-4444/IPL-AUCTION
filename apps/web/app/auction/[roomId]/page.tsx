@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { connectSocket } from '@/lib/socket';
 import { useRoomStore } from '@/store/roomStore';
@@ -9,6 +9,7 @@ import { BidPanel } from '@/components/auction/BidPanel';
 import { BidHistory } from '@/components/auction/BidHistory';
 import { TeamBudgetList } from '@/components/auction/TeamBudgetList';
 import { RoundIndicator } from '@/components/auction/RoundIndicator';
+import { RoleBadge } from '@/components/ui/RoleBadge';
 import { Confetti } from '@/components/ui/Confetti';
 import { PlayerCardSkeleton } from '@/components/ui/Skeleton';
 import { useReconnect } from '@/hooks/useReconnect';
@@ -25,7 +26,10 @@ export default function AuctionPage() {
   const {
     currentPlayer, currentBid, currentRound, timerSeconds, bidHistory,
     lastSoldPlayer, lastUnsoldPlayer, isPaused,
-    setCurrentPlayer, setCurrentBid, setTimer, setPlayerSold, setPlayerUnsold, setPaused,
+    roundPreviewPlayers, roundPreviewRound, roundPreviewSeconds,
+    skipVotes, totalTeams,
+    setCurrentPlayer, setCurrentBid, setTimer, setPlayerSold, setPlayerUnsold,
+    setPaused, setRoundPreview, clearRoundPreview, setSkipVotes,
   } = useAuctionStore();
 
   useReconnect();
@@ -34,6 +38,10 @@ export default function AuctionPage() {
   const [showUnsoldBanner, setShowUnsoldBanner] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>('bid');
+
+  // Issue 3: local countdown for round preview
+  const [previewCountdown, setPreviewCountdown] = useState(0);
+  const previewIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const myTeam = room?.teams.find((t) => t.userId === myUserId) ?? null;
   const isHost = myUserId === room?.hostId;
@@ -49,9 +57,31 @@ export default function AuctionPage() {
 
     socket.on('auction:player-up', (player: Player, round: AuctionRound) => {
       setCurrentPlayer(player, round);
+      clearRoundPreview();
       setShowSoldBanner(false);
       setShowUnsoldBanner(false);
       setConfettiActive(false);
+      if (previewIntervalRef.current) {
+        clearInterval(previewIntervalRef.current);
+        previewIntervalRef.current = null;
+      }
+    });
+
+    // Issue 3: round preview — show player list + start local countdown
+    socket.on('auction:round-preview', (players: Player[], round: AuctionRound, seconds: number) => {
+      setRoundPreview(players, round, seconds);
+      setPreviewCountdown(seconds);
+      if (previewIntervalRef.current) clearInterval(previewIntervalRef.current);
+      previewIntervalRef.current = setInterval(() => {
+        setPreviewCountdown((c) => {
+          if (c <= 1) {
+            clearInterval(previewIntervalRef.current!);
+            previewIntervalRef.current = null;
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
     });
 
     socket.on('auction:bid-placed', (bid: Bid) => setCurrentBid(bid));
@@ -70,23 +100,37 @@ export default function AuctionPage() {
       setTimeout(() => setShowUnsoldBanner(false), 2500);
     });
 
+    // Issue 5: skip votes
+    socket.on('auction:skip-votes', (votes: number, total: number) => {
+      setSkipVotes(votes, total);
+    });
+
     socket.on('auction:complete', () => router.push(`/team-setup/${roomId}`));
     socket.on('error', (msg: string) => showToast(msg));
 
     return () => {
       socket.off('room:updated');
       socket.off('auction:player-up');
+      socket.off('auction:round-preview');
       socket.off('auction:bid-placed');
       socket.off('auction:timer-tick');
       socket.off('auction:player-sold');
       socket.off('auction:player-unsold');
+      socket.off('auction:skip-votes');
       socket.off('auction:complete');
       socket.off('error');
+      if (previewIntervalRef.current) clearInterval(previewIntervalRef.current);
     };
-  }, [roomId, router, setRoom, setCurrentPlayer, setCurrentBid, setTimer, setPlayerSold, setPlayerUnsold, showToast]);
+  }, [roomId, router, setRoom, setCurrentPlayer, setCurrentBid, setTimer,
+      setPlayerSold, setPlayerUnsold, setRoundPreview, clearRoundPreview,
+      setSkipVotes, showToast]);
 
   function handleBid(amount: number) {
     connectSocket().emit('auction:bid', amount);
+  }
+
+  function handleSkip() {
+    connectSocket().emit('auction:skip');
   }
 
   function handleNextPlayer() {
@@ -111,11 +155,83 @@ export default function AuctionPage() {
 
   const roundLabel = ROUND_ROLES[currentRound] === 'Unsold' ? 'Unsold Round' : `${ROUND_ROLES[currentRound]}s`;
 
+  // Issue 3: Round Preview overlay
+  if (roundPreviewPlayers.length > 0 && roundPreviewRound !== null) {
+    const previewRoleLabel = ROUND_ROLES[roundPreviewRound] === 'Unsold'
+      ? 'Unsold Players'
+      : `${ROUND_ROLES[roundPreviewRound]}s`;
+
+    return (
+      <main className="min-h-screen flex flex-col relative overflow-hidden">
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+        {/* Header */}
+        <header className="sticky top-0 z-30 px-4 py-2.5 flex items-center justify-between"
+          style={{ borderBottom: '1px solid rgba(42,42,58,0.6)', background: 'rgba(10,10,15,0.92)', backdropFilter: 'blur(16px)' }}>
+          <div>
+            <span className="text-[10px] tracking-widest uppercase" style={{ color: '#FF6B00' }}>
+              Round {roundPreviewRound}
+            </span>
+            <h1 className="text-base leading-none" style={{ fontFamily: 'var(--font-bebas)', color: '#E8E8F0' }}>
+              {previewRoleLabel}
+            </h1>
+          </div>
+          <div className="text-right">
+            <p className="text-xs" style={{ color: 'rgba(232,232,240,0.4)' }}>Auction starts in</p>
+            <p className="text-2xl leading-none" style={{ fontFamily: 'var(--font-bebas)', color: '#FFD700' }}>
+              {previewCountdown}s
+            </p>
+          </div>
+        </header>
+
+        {/* Player list */}
+        <div className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
+          <div className="mb-5 text-center animate-slide-up">
+            <p className="text-sm" style={{ color: 'rgba(232,232,240,0.5)' }}>
+              {roundPreviewPlayers.length} players up for auction — study up!
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {roundPreviewPlayers.map((p, i) => (
+              <div key={p.id}
+                className="glass-bright rounded-xl px-4 py-3 flex items-center gap-3 animate-slide-up"
+                style={{ animationDelay: `${i * 0.03}s` }}>
+                <span className="text-xs w-5 text-right" style={{ color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-mono)' }}>
+                  {i + 1}
+                </span>
+                <RoleBadge role={p.role} size="sm" />
+                <span className="flex-1 font-semibold text-sm" style={{ color: '#E8E8F0' }}>{p.name}</span>
+                <span className="text-xs" style={{ color: 'rgba(232,232,240,0.4)' }}>{p.team}</span>
+                <span className="text-xs font-bold" style={{ color: '#FF6B00', fontFamily: 'var(--font-mono)' }}>
+                  ₹{p.basePrice}
+                </span>
+                <div className="flex items-center gap-1 text-xs">
+                  <span style={{ color: '#FFD700', fontFamily: 'var(--font-mono)' }}>{p.rating}</span>
+                  <span style={{ color: 'rgba(232,232,240,0.25)' }}>rat</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Progress bar countdown */}
+        <div className="h-1 w-full" style={{ background: 'rgba(42,42,58,0.6)' }}>
+          <div
+            className="h-full transition-all duration-1000"
+            style={{
+              width: `${(previewCountdown / roundPreviewSeconds) * 100}%`,
+              background: 'linear-gradient(90deg, #FF6B00, #FFD700)',
+            }}
+          />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen relative overflow-hidden flex flex-col">
-      {/* Toasts */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      {/* Confetti canvas */}
       <Confetti active={confettiActive} />
 
       {/* SOLD banner */}
@@ -165,7 +281,6 @@ export default function AuctionPage() {
           </h1>
         </div>
 
-        {/* Round tracker — hidden on very small screens */}
         <div className="flex-1 max-w-36 hidden sm:block">
           <RoundIndicator currentRound={currentRound} />
         </div>
@@ -239,11 +354,13 @@ export default function AuctionPage() {
                   player={currentPlayer}
                   currentBid={currentBid}
                   timerSeconds={timerSeconds}
-                  bidIncrement={room.auctionConfig.bidIncrementCr}
                   myBudget={myTeam.budgetRemaining}
                   myTeamId={myTeam.id}
                   isPaused={isPaused}
+                  skipVotes={skipVotes}
+                  totalTeams={totalTeams || room.teams.length}
                   onBid={handleBid}
+                  onSkip={handleSkip}
                 />
               ) : (
                 <div className="flex items-center justify-center min-h-[280px]">

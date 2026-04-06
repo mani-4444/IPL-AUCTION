@@ -111,6 +111,13 @@ export function loadUnsoldRound(roomId: string): void {
   console.log(`Unsold round loaded for room ${roomId}: ${unsold.length} players`);
 }
 
+// Returns all players for a round WITHOUT advancing the index (for preview)
+export function getPlayersForRound(roomId: string, round: AuctionRound): Player[] {
+  const pools = playerPools.get(roomId);
+  if (!pools) return [];
+  return pools.get(round) ?? [];
+}
+
 export function cleanupRoom(roomId: string): void {
   playerPools.delete(roomId);
   unsoldPlayers.delete(roomId);
