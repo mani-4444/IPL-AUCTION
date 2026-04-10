@@ -94,6 +94,33 @@ export interface Bid {
   timestamp: number;
 }
 
+export interface WithdrawVoteState {
+  votes: string[];
+  highestBidder: string | null;
+  eligible: string[];
+}
+
+export interface PlayerClosedPayload {
+  playerId: string;
+  playerName: string;
+  result: 'sold' | 'unsold';
+  soldPrice: number | null;
+  buyer: string | null;
+}
+
+export interface SyncStatePayload {
+  currentPlayer: Player | null;
+  currentBid: Bid | null;
+  currentRound: AuctionRound;
+  biddingStarted: boolean;
+  highestBidder: string | null;
+  skipVotes: number;
+  withdrawVotes: WithdrawVoteState;
+  isPlayerClosed: boolean;
+  timerSeconds: number;
+  roundCounts: Record<number, { total: number; remaining: number }>;
+}
+
 // Socket.io Events
 export interface ServerToClientEvents {
   'room:updated': (room: Room) => void;
@@ -104,8 +131,14 @@ export interface ServerToClientEvents {
   'auction:player-unsold': (player: Player) => void;
   'auction:round-complete': (round: AuctionRound) => void;
   'auction:round-preview': (players: Player[], round: AuctionRound, seconds: number) => void;
+  'auction:preview-tick': (timeLeft: number) => void;
   'auction:skip-votes': (votes: number, total: number) => void;
+  'auction:bidding-started': (bid: Bid, withdrawState: WithdrawVoteState) => void;
+  'auction:withdraw-votes': (withdrawState: WithdrawVoteState) => void;
+  'auction:player_closed': (data: PlayerClosedPayload) => void;
+  'sync:state': (state: SyncStatePayload) => void;
   'auction:complete': () => void;
+  'auction:round-counts': (counts: Record<number, { total: number; remaining: number }>) => void;
   'team:xi-submitted': (teamId: string) => void;
   'results:ready': (teams: Team[]) => void;
   'error': (message: string) => void;
@@ -116,12 +149,15 @@ export interface ClientToServerEvents {
   'room:join': (data: { code: string; userName: string; teamName: string }) => void;
   'room:leave': () => void;
   'room:rejoin': (data: { roomId: string; userId: string }) => void;
+  'sync_state': () => void;
   'auction:start': () => void;
   'auction:bid': (amount: number) => void;
   'auction:next-player': () => void;
   'auction:pause': () => void;
   'auction:resume': () => void;
   'auction:skip': () => void;
+  'auction:withdraw': () => void;
+  'auction:skip-round': () => void;
   'team:submit-xi': (data: {
     playingXI: string[];
     captain: string;

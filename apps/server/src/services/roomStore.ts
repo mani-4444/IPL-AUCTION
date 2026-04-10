@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 // In-memory store — primary source of truth during gameplay
 const rooms = new Map<string, Room>();
 const roomTimers = new Map<string, NodeJS.Timeout>();
+const closedPlayers = new Map<string, Set<string>>();
 
 // Lookup room by join code
 const codeToRoomId = new Map<string, string>();
@@ -64,13 +65,20 @@ export function createRoom(hostId: string, hostName: string, teamName: string): 
   return room;
 }
 
-export function joinRoom(
+export async function joinRoom(
   code: string,
   userId: string,
   userName: string,
   teamName: string
-): { room: Room; team: Team } | { error: string } {
-  const roomId = codeToRoomId.get(code.toUpperCase());
+): Promise<{ room: Room; team: Team } | { error: string }> {
+  let roomId = codeToRoomId.get(code.toUpperCase());
+
+  // DB fallback: server may have restarted and lost in-memory state
+  if (!roomId) {
+    const recovered = await loadRoomByCodeFromDB(code.toUpperCase());
+    if (recovered) roomId = recovered.id;
+  }
+
   if (!roomId) return { error: 'Room not found. Check the code and try again.' };
 
   const room = rooms.get(roomId);
@@ -124,6 +132,7 @@ export function removeTeamFromRoom(roomId: string, userId: string): Room | undef
     codeToRoomId.delete(room.code);
     rooms.delete(roomId);
     clearRoomTimer(roomId);
+    closedPlayers.delete(roomId);
     return undefined;
   }
 
@@ -143,7 +152,11 @@ export function getTeamByUserId(roomId: string, userId: string): Team | undefine
 
 // Timer management
 export function setRoomTimer(roomId: string, timer: NodeJS.Timeout): void {
-  clearRoomTimer(roomId);
+  const existing = roomTimers.get(roomId);
+  if (existing) {
+    console.warn(`Timer overwritten for room ${roomId} - possible race condition`);
+    clearInterval(existing);
+  }
   roomTimers.set(roomId, timer);
 }
 
@@ -152,6 +165,112 @@ export function clearRoomTimer(roomId: string): void {
   if (existing) {
     clearInterval(existing);
     roomTimers.delete(roomId);
+  }
+}
+
+export function isPlayerClosed(roomId: string, playerId: string): boolean {
+  return closedPlayers.get(roomId)?.has(playerId) ?? false;
+}
+
+export function closePlayer(roomId: string, playerId: string): void {
+  if (!closedPlayers.has(roomId)) {
+    closedPlayers.set(roomId, new Set());
+  }
+
+  closedPlayers.get(roomId)!.add(playerId);
+}
+
+export function clearClosedPlayers(roomId: string): void {
+  closedPlayers.delete(roomId);
+}
+
+// Upsert a room_participants row (DB-level uniqueness per user per room)
+export async function upsertRoomParticipant(
+  roomId: string,
+  userId: string,
+  teamId: string
+): Promise<void> {
+  try {
+    const { error } = await supabase.from('room_participants').upsert(
+      { room_id: roomId, user_id: userId, team_id: teamId },
+      { onConflict: 'room_id,user_id' }
+    );
+    if (error) console.error('Failed to upsert room_participant:', error.message);
+  } catch (err) {
+    console.error('upsertRoomParticipant error:', err);
+  }
+}
+
+// Load room by join code from DB (used when in-memory codeToRoomId map is empty)
+async function loadRoomByCodeFromDB(code: string): Promise<Room | undefined> {
+  try {
+    const { data: roomRow, error } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('code', code)
+      .single();
+
+    if (error || !roomRow) return undefined;
+    return loadRoomFromDB(roomRow.id);
+  } catch (err) {
+    console.error('loadRoomByCodeFromDB error:', err);
+    return undefined;
+  }
+}
+
+// Reconstruct full room state from DB (used after server restart for rejoin recovery)
+export async function loadRoomFromDB(roomId: string): Promise<Room | undefined> {
+  try {
+    const { data: roomRow, error: roomErr } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .single();
+
+    if (roomErr || !roomRow) return undefined;
+
+    const { data: teamRows, error: teamsErr } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('room_id', roomId);
+
+    if (teamsErr || !teamRows) return undefined;
+
+    const teams: Team[] = teamRows.map((t) => ({
+      id: t.id,
+      userId: t.user_id,
+      userName: t.user_name,
+      roomId: t.room_id,
+      teamName: t.team_name,
+      budgetRemaining: t.budget_remaining,
+      players: t.players ?? [],
+      playingXI: t.playing_xi ?? [],
+      bench: t.bench ?? [],
+      captain: t.captain ?? undefined,
+      viceCaptain: t.vice_captain ?? undefined,
+      finalScore: t.final_score ?? undefined,
+    }));
+
+    const room: Room = {
+      id: roomRow.id,
+      code: roomRow.code,
+      hostId: roomRow.host_id,
+      hostName: roomRow.host_name,
+      status: roomRow.status,
+      teams,
+      currentRound: roomRow.current_round,
+      auctionConfig: roomRow.auction_config,
+    };
+
+    // Restore in-memory maps so subsequent requests are served from memory
+    rooms.set(room.id, room);
+    codeToRoomId.set(room.code, room.id);
+
+    console.log(`Room ${room.code} recovered from DB (${teams.length} teams)`);
+    return room;
+  } catch (err) {
+    console.error('loadRoomFromDB error:', err);
+    return undefined;
   }
 }
 

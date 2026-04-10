@@ -7,6 +7,13 @@ const playerPools = new Map<string, Map<AuctionRound, Player[]>>();
 const unsoldPlayers = new Map<string, Player[]>();
 const currentIndex = new Map<string, number>(); // roomId → index within current round
 
+function shuffleInPlace<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
 function mapDbPlayer(row: Record<string, unknown>): Player {
   return {
     id: row.id as string,
@@ -54,6 +61,11 @@ export async function loadPlayersForRoom(roomId: string): Promise<void> {
     if (round) {
       poolMap.get(round)!.push(player);
     }
+  }
+
+  // Shuffle each round's pool for random player ordering
+  for (let r = 1; r <= 4; r++) {
+    shuffleInPlace(poolMap.get(r as AuctionRound)!);
   }
 
   playerPools.set(roomId, poolMap);
@@ -105,10 +117,39 @@ export function loadUnsoldRound(roomId: string): void {
   if (!pools) return;
 
   const unsold = unsoldPlayers.get(roomId) ?? [];
-  pools.set(5, [...unsold]);
+  const shuffled = [...unsold];
+  shuffleInPlace(shuffled);
+  pools.set(5, shuffled);
   currentIndex.set(roomId, 0);
 
   console.log(`Unsold round loaded for room ${roomId}: ${unsold.length} players`);
+}
+
+export interface RoundCount {
+  total: number;
+  remaining: number;
+}
+
+export function getRoundCounts(
+  roomId: string,
+  currentRound: AuctionRound
+): Record<number, RoundCount> {
+  const pools = playerPools.get(roomId);
+  if (!pools) return {};
+
+  const idx = currentIndex.get(roomId) ?? 0;
+  const result: Record<number, RoundCount> = {};
+
+  for (let r = 1; r <= 5; r++) {
+    const pool = pools.get(r as AuctionRound) ?? [];
+    let remaining: number;
+    if (r < currentRound) remaining = 0;
+    else if (r === currentRound) remaining = Math.max(0, pool.length - idx);
+    else remaining = pool.length;
+    result[r] = { total: pool.length, remaining };
+  }
+
+  return result;
 }
 
 // Returns all players for a round WITHOUT advancing the index (for preview)
@@ -116,6 +157,18 @@ export function getPlayersForRound(roomId: string, round: AuctionRound): Player[
   const pools = playerPools.get(roomId);
   if (!pools) return [];
   return pools.get(round) ?? [];
+}
+
+// Returns all players not yet auctioned in the round and fast-forwards the index to the end
+export function skipRemainingInRound(roomId: string, round: AuctionRound): Player[] {
+  const pools = playerPools.get(roomId);
+  if (!pools) return [];
+
+  const pool = pools.get(round) ?? [];
+  const idx = currentIndex.get(roomId) ?? 0;
+  const remaining = pool.slice(idx);
+  currentIndex.set(roomId, pool.length); // advance to end
+  return remaining;
 }
 
 export function cleanupRoom(roomId: string): void {

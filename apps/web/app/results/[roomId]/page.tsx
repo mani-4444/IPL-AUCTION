@@ -11,14 +11,6 @@ import type { Team, Room } from '@/types';
 const MEDALS = ['🥇', '🥈', '🥉'];
 const PODIUM_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
-function ScoreBar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = Math.min(100, (value / max) * 100);
-  return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(42,42,58,0.6)' }}>
-      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
-    </div>
-  );
-}
 
 function TeamScoreCard({ team, rank, isMe }: { team: Team; rank: number; isMe: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -63,28 +55,28 @@ function TeamScoreCard({ team, rank, isMe }: { team: Team; rank: number; isMe: b
           </div>
         </div>
 
-        {/* Score breakdown bars */}
-        <div className="mt-4 space-y-2">
+        {/* Score breakdown chips */}
+        <div className="mt-4 flex flex-wrap gap-2">
           {[
-            { label: 'XI Score', value: score.xiScore, max: 800, color: '#3B82F6' },
-            { label: 'Bench', value: score.benchScore, max: 200, color: '#8B5CF6' },
-            { label: 'ROI', value: score.roi, max: 20, color: '#22C55E' },
-            { label: 'Bonus', value: score.roleBonus, max: 10, color: '#FFD700' },
-          ].map(({ label, value, max, color }) => (
-            <div key={label} className="grid grid-cols-[60px_1fr_40px] items-center gap-2">
-              <span className="text-[10px] tracking-wider uppercase" style={{ color: 'rgba(232,232,240,0.35)' }}>{label}</span>
-              <ScoreBar value={value} max={max} color={color} />
-              <span className="text-[11px] text-right font-bold" style={{ color, fontFamily: 'var(--font-mono)' }}>
-                {value.toFixed(1)}
+            { label: 'Playing XI', value: score.xiScore, color: '#3B82F6' },
+            { label: 'Bench', value: score.benchScore, color: '#8B5CF6' },
+            { label: 'ROI', value: score.roi, color: '#22C55E' },
+            { label: 'Bonus', value: score.roleBonus, color: '#FFD700' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              style={{ background: `${color}12`, border: `1px solid ${color}30` }}>
+              <span className="text-[10px] tracking-wider uppercase" style={{ color: `${color}99` }}>{label}</span>
+              <span className="text-xs font-bold" style={{ color, fontFamily: 'var(--font-mono)' }}>
+                {value.toFixed(1)} pts
               </span>
             </div>
           ))}
           {score.penalties < 0 && (
-            <div className="grid grid-cols-[60px_1fr_40px] items-center gap-2">
-              <span className="text-[10px] tracking-wider uppercase" style={{ color: 'rgba(220,38,38,0.7)' }}>Penalty</span>
-              <div />
-              <span className="text-[11px] text-right font-bold" style={{ color: '#F87171', fontFamily: 'var(--font-mono)' }}>
-                {score.penalties}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)' }}>
+              <span className="text-[10px] tracking-wider uppercase" style={{ color: 'rgba(248,113,113,0.7)' }}>Penalty</span>
+              <span className="text-xs font-bold" style={{ color: '#F87171', fontFamily: 'var(--font-mono)' }}>
+                {score.penalties} pts
               </span>
             </div>
           )}
@@ -106,7 +98,11 @@ function TeamScoreCard({ team, rank, isMe }: { team: Team; rank: number; isMe: b
         {expanded && (
           <div className="mt-3 space-y-1.5 animate-slide-up">
             {[...team.players]
-              .sort((a, b) => b.rating - a.rating)
+              .sort((a, b) => {
+                const aXI = team.playingXI.includes(a.id) ? 0 : 1;
+                const bXI = team.playingXI.includes(b.id) ? 0 : 1;
+                return aXI - bXI;
+              })
               .map((player) => {
                 const inXI = team.playingXI.includes(player.id);
                 const isC = team.captain === player.id;
@@ -124,9 +120,6 @@ function TeamScoreCard({ team, rank, isMe }: { team: Team; rank: number; isMe: b
                     </span>
                     {isC && <span className="text-[10px] font-bold px-1 rounded" style={{ background: '#FFD700', color: '#000' }}>C</span>}
                     {isVC && <span className="text-[10px] font-bold px-1 rounded" style={{ background: '#9CA3AF', color: '#000' }}>V</span>}
-                    <span style={{ color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-mono)' }}>
-                      {player.rating}
-                    </span>
                     <span style={{ color: '#FF6B00', fontFamily: 'var(--font-mono)' }}>
                       ₹{player.soldPrice}
                     </span>
