@@ -5,8 +5,11 @@ import {
   getRoom,
   removeTeamFromRoom,
   persistRoom,
+  upsertRoomParticipant,
+  loadRoomFromDB,
 } from '../services/roomStore';
 import { calculateAllScores } from '../services/scoringService';
+import { getSyncState, reEmitPreviewIfActive } from '../services/auctionService';
 
 // Grace period before removing a disconnected player (30s)
 const DISCONNECT_GRACE_MS = 30_000;
@@ -21,7 +24,9 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
       return;
     }
 
-    const userId = socket.id;
+    // data.userId is set by the server middleware from socket.handshake.auth.userId
+    // (stable Supabase UUID — same across all tabs for this user)
+    const userId = data.userId;
     const room = createRoom(userId, userName.trim(), teamName.trim());
     const team = room.teams[0];
 
@@ -38,6 +43,7 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
 
     // Persist to Supabase
     await persistRoom(room);
+    await upsertRoomParticipant(room.id, userId, team.id);
 
     console.log(`Room created: ${room.code} by ${userName} (${teamName})`);
   });
@@ -48,8 +54,8 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
       return;
     }
 
-    const userId = socket.id;
-    const result = joinRoom(code.trim(), userId, userName.trim(), teamName.trim());
+    const userId = data.userId; // stable Supabase UUID from middleware
+    const result = await joinRoom(code.trim(), userId, userName.trim(), teamName.trim());
 
     if ('error' in result) {
       socket.emit('error', result.error);
@@ -70,6 +76,7 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
     io.to(room.id).emit('room:updated', room);
 
     await persistRoom(room);
+    await upsertRoomParticipant(room.id, userId, team.id);
 
     console.log(`${userName} (${teamName}) joined room ${room.code}`);
   });
@@ -79,14 +86,20 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
     handleLeave(io, socket, data);
   });
 
-  socket.on('room:rejoin', ({ roomId, userId }) => {
+  socket.on('room:rejoin', async ({ roomId, userId }) => {
     // Cancel any pending disconnect for this user
     cancelPendingLeave(userId);
 
-    const room = getRoom(roomId);
+    // Fast path: room is in memory
+    let room = getRoom(roomId);
+
+    // Slow path: server may have restarted — try to recover from DB
     if (!room) {
-      socket.emit('error', 'Room no longer exists.');
-      return;
+      room = await loadRoomFromDB(roomId);
+      if (!room) {
+        socket.emit('error', 'Room no longer exists.');
+        return;
+      }
     }
 
     const team = room.teams.find((t) => t.userId === userId);
@@ -105,8 +118,25 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
     // Re-join socket room and send current state
     socket.join(room.id);
     socket.emit('room:updated', room);
+    reEmitPreviewIfActive(io, room.id);
+    const syncState = getSyncState(room.id);
+    if (syncState) {
+      socket.emit('sync:state', syncState);
+    }
 
     console.log(`${team.userName} rejoined room ${room.code}`);
+  });
+
+  socket.on('sync_state', () => {
+    if (!data.roomId) return;
+
+    const room = getRoom(data.roomId);
+    if (!room) return;
+
+    const syncState = getSyncState(room.id);
+    if (!syncState) return;
+
+    socket.emit('sync:state', syncState);
   });
 
   socket.on('disconnect', () => {

@@ -202,6 +202,14 @@ body {
 .animate-sold { animation: sold-stamp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
 .animate-timer-pulse { animation: timer-pulse 1s ease-in-out infinite; }
 .animate-bid-flash { animation: bid-flash 0.3s ease-out; }
+.animate-countdown-pop { animation: countdown-pop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
+
+@keyframes countdown-pop {
+  0%   { transform: scale(2.2); opacity: 0; }
+  50%  { transform: scale(0.88); opacity: 1; }
+  75%  { transform: scale(1.06); }
+  100% { transform: scale(1);    opacity: 1; }
+}
 
 /* ─── Bid Amount Flip ─── */
 .bid-flip {

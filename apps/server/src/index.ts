@@ -3,7 +3,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import type { ServerToClientEvents, ClientToServerEvents } from './types';
+import type { ServerToClientEvents, ClientToServerEvents, SocketData } from './types';
 import { registerRoomHandlers } from './socket/roomHandlers';
 import { registerAuctionHandlers } from './socket/auctionHandlers';
 import { registerTeamHandlers } from './socket/teamHandlers';
@@ -31,6 +31,17 @@ export const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpSer
   transports: ['websocket', 'polling'],
   pingTimeout: 20000,
   pingInterval: 25000,
+});
+
+// Socket middleware — reads stable Supabase userId from handshake auth.
+// This runs before every event handler so socket.data.userId is always set.
+io.use((socket, next) => {
+  const userId = (socket.handshake.auth as Record<string, string>)?.userId;
+  if (!userId) {
+    return next(new Error('Missing userId in socket auth. Refresh the page.'));
+  }
+  (socket.data as unknown as SocketData).userId = userId;
+  next();
 });
 
 // Health check

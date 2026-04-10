@@ -5,8 +5,10 @@ import {
   nextPlayer,
   onBid,
   onSkip,
+  onWithdraw,
   pauseAuction,
   resumeAuction,
+  skipRound,
 } from '../services/auctionService';
 
 export function registerAuctionHandlers(io: IOServer, socket: IOSocket): void {
@@ -30,10 +32,16 @@ export function registerAuctionHandlers(io: IOServer, socket: IOSocket): void {
     onBid(io, data.roomId, data.userId, amount, socket.id);
   });
 
-  // Issue 5: skip player (unanimous vote triggers unsold)
+  // Skip player (pre-bid only — unanimous vote triggers unsold)
   socket.on('auction:skip', () => {
     if (!data.roomId || !data.userId) return;
     onSkip(io, data.roomId, data.userId);
+  });
+
+  // Withdraw (post-first-bid — all eligible teams withdraw → auto-sold)
+  socket.on('auction:withdraw', () => {
+    if (!data.roomId || !data.userId) return;
+    onWithdraw(io, data.roomId, data.userId);
   });
 
   socket.on('auction:next-player', () => {
@@ -41,6 +49,14 @@ export function registerAuctionHandlers(io: IOServer, socket: IOSocket): void {
     if (!room) return;
     if (data.userId !== room.hostId) { socket.emit('error', 'Only the host can advance to next player.'); return; }
     nextPlayer(io, room.id);
+  });
+
+  socket.on('auction:skip-round', () => {
+    const room = getRoom(data.roomId);
+    if (!room) return;
+    if (data.userId !== room.hostId) { socket.emit('error', 'Only the host can skip a round.'); return; }
+    if (room.currentRound === 5) { socket.emit('error', 'Cannot skip the unsold round.'); return; }
+    skipRound(io, room.id);
   });
 
   socket.on('auction:pause', () => {

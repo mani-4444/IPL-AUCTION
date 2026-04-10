@@ -154,8 +154,38 @@ export default function RoomLobbyPage() {
         </div>
       </div>
 
-      {/* Teams List */}
+      {/* Auction Rules */}
       <div className="mt-6 glass-bright rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+        <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: 'rgba(232,232,240,0.45)' }}>
+          Auction Rules
+        </p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {[
+            { icon: '💰', label: 'Starting Budget', value: '₹100 Cr per team' },
+            { icon: '👥', label: 'Squad Size', value: '15 players (11 XI + 4 bench)' },
+            { icon: '🌍', label: 'Overseas Limit', value: 'Max 6 overseas players per squad' },
+            { icon: '⏱️', label: 'Bid Timer', value: '10 seconds per bid' },
+            { icon: '📈', label: 'Min Bid Increment', value: '₹0.25 Cr' },
+            { icon: '🏏', label: 'Rounds', value: '5 rounds (BAT · WK · BOWL · AR · Unsold)' },
+            { icon: '🧤', label: 'WK Penalty', value: '-10 pts if no wicketkeeper in XI' },
+            { icon: '🎳', label: 'Bowling Penalty', value: '-10 pts if fewer than 5 bowlers/all-rounders in XI' },
+            { icon: '🌐', label: 'Overseas XI Penalty', value: '-10 pts per overseas player above 4 in XI' },
+            { icon: '🏆', label: 'Captain / Vice-Captain', value: '2× rating multiplier each in XI score' },
+          ].map(({ icon, label, value }) => (
+            <div key={label} className="flex items-start gap-3 px-3 py-2.5 rounded-xl"
+              style={{ background: 'rgba(10,10,15,0.5)', border: '1px solid rgba(42,42,58,0.5)' }}>
+              <span className="text-lg flex-shrink-0 mt-0.5">{icon}</span>
+              <div>
+                <p className="text-[11px] font-semibold" style={{ color: 'rgba(232,232,240,0.45)' }}>{label}</p>
+                <p className="text-xs font-medium mt-0.5" style={{ color: '#E8E8F0' }}>{value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Teams List */}
+      <div className="mt-6 glass-bright rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'rgba(232,232,240,0.45)' }}>
             Teams ({room.teams.length}/{room.auctionConfig.maxTeams})

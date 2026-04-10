@@ -9,21 +9,60 @@ const ROLE_COLORS: Record<string, string> = {
   'All-Rounder':  '#22C55E',
 };
 
-function RatingBar({ rating }: { rating: number }) {
-  const segments = 10;
-  const filled = Math.round(rating / 10);
-  return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: segments }).map((_, i) => (
-        <div key={i} className="h-1 flex-1 rounded-full transition-all duration-300"
-          style={{ background: i < filled ? '#FFD700' : 'rgba(42,42,58,0.8)' }} />
-      ))}
-    </div>
-  );
+interface PlayerCardProps {
+  player: Player;
+  compact?: boolean; // mobile inline variant
 }
 
-export function PlayerCard({ player }: { player: Player }) {
+export function PlayerCard({ player, compact = false }: PlayerCardProps) {
   const color = ROLE_COLORS[player.role] ?? '#FF6B00';
+
+  if (compact) {
+    return (
+      <div
+        className="rounded-2xl overflow-hidden animate-slide-up"
+        style={{
+          background: 'rgba(14,14,20,0.95)',
+          border: `1px solid ${color}30`,
+          boxShadow: `0 0 20px ${color}10`,
+        }}
+      >
+        <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
+        <div className="px-4 py-3 flex items-center gap-3">
+          {/* Role icon */}
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+            style={{ background: `${color}18`, border: `1px solid ${color}28` }}
+          >
+            🏏
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <RoleBadge role={player.role} size="sm" />
+              {player.nationality === 'Overseas' && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                  style={{ background: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: '1px solid rgba(56,189,248,0.3)' }}>
+                  OS
+                </span>
+              )}
+            </div>
+            <h2 className="text-lg font-bold leading-tight truncate" style={{ color: '#E8E8F0' }}>
+              {player.name}
+            </h2>
+            <p className="text-xs truncate" style={{ color: 'rgba(232,232,240,0.4)' }}>
+              {player.team}
+            </p>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: 'rgba(232,232,240,0.35)' }}>Base</p>
+            <p className="font-bold text-base" style={{ color: '#FF6B00', fontFamily: 'var(--font-mono)' }}>
+              ₹{player.basePrice}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative rounded-2xl overflow-hidden animate-slide-up"
@@ -32,11 +71,8 @@ export function PlayerCard({ player }: { player: Player }) {
         border: `1px solid ${color}33`,
         boxShadow: `0 0 30px ${color}15, 0 8px 32px rgba(0,0,0,0.4)`,
       }}>
-      {/* Top accent bar */}
       <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
-
       <div className="p-6">
-        {/* Header row */}
         <div className="flex items-start justify-between mb-5">
           <div>
             <RoleBadge role={player.role} size="sm" />
@@ -47,28 +83,11 @@ export function PlayerCard({ player }: { player: Player }) {
               {player.team} · {player.nationality}
             </p>
           </div>
-          {/* Avatar silhouette */}
           <div className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 animate-float"
-            style={{
-              background: `${color}18`,
-              border: `1px solid ${color}30`,
-            }}>
+            style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
             🏏
           </div>
         </div>
-
-        {/* Rating */}
-        <div className="mb-5">
-          <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-5xl leading-none" style={{ fontFamily: 'var(--font-bebas)', color: '#FFD700' }}>
-              {player.rating}
-            </span>
-            <span className="text-sm" style={{ color: 'rgba(232,232,240,0.4)' }}>/100</span>
-          </div>
-          <RatingBar rating={player.rating} />
-        </div>
-
-        {/* Base Price */}
         <div className="flex items-center justify-between pt-4"
           style={{ borderTop: '1px solid rgba(42,42,58,0.6)' }}>
           <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'rgba(232,232,240,0.4)' }}>
