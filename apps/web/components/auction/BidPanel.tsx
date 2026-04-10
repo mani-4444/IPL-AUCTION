@@ -25,6 +25,7 @@ interface BidPanelProps {
   squadSize: number;
   hasWithdrawn: boolean;
   isHighestBidder: boolean;
+  isPlayerClosed: boolean;
   canSkip: boolean;
   canWithdraw: boolean;
   onBid: (amount: number) => void;
@@ -46,6 +47,7 @@ export function BidPanel({
   totalTeams,
   withdrawVotes,
   withdrawEligible,
+  isPlayerClosed,
   hasWithdrawn,
   isHighestBidder,
   canSkip,
@@ -67,7 +69,7 @@ export function BidPanel({
   }, [currentBid?.amount]);
 
   const isLeading = currentBid?.teamId === myTeamId;
-  const timerActive = timerSeconds > 0 && !isPaused;
+  const timerActive = timerSeconds > 0 && !isPaused && !isPlayerClosed;
   const floor = currentBid ? currentBid.amount : player.basePrice;
 
   function handleBid(cr: number) {

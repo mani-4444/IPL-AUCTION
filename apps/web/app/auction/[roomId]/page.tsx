@@ -458,6 +458,7 @@ export default function AuctionPage() {
                   totalTeams={totalTeams || room.teams.length}
                   withdrawVotes={withdrawVotes}
                   withdrawEligible={withdrawEligible}
+                  isPlayerClosed={isPlayerClosed}
                   hasWithdrawn={hasWithdrawn}
                   squadFull={squadFull}
                   squadSize={squadSize}
