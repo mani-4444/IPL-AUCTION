@@ -242,7 +242,7 @@ function RoomCard({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type PageState = 'checking' | 'unauthenticated' | 'authenticated';
+type PageState = 'checking' | 'landing' | 'unauthenticated' | 'authenticated';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -258,7 +258,7 @@ export default function LandingPage() {
         setUserId(uid);
         setPageState('authenticated');
       } else {
-        setPageState('unauthenticated');
+        setPageState('landing');
       }
     });
 
@@ -269,7 +269,7 @@ export default function LandingPage() {
         setPageState('authenticated');
       } else {
         setUserId(null);
-        setPageState('unauthenticated');
+        setPageState('landing');
       }
     });
 
@@ -331,6 +331,27 @@ export default function LandingPage() {
       {pageState === 'checking' && (
         <div className="flex items-center justify-center h-32">
           <Spinner />
+        </div>
+      )}
+
+      {pageState === 'landing' && (
+        <div className="flex flex-col items-center gap-5 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <button
+            onClick={() => setPageState('unauthenticated')}
+            className="px-16 py-5 rounded-2xl text-2xl tracking-widest uppercase transition-all duration-200 active:scale-95"
+            style={{
+              fontFamily: 'var(--font-bebas)',
+              background: 'linear-gradient(135deg, #FF6B00, #FF8C33)',
+              color: '#fff',
+              cursor: 'pointer',
+              boxShadow: '0 0 40px rgba(255,107,0,0.5), 0 8px 32px rgba(255,107,0,0.3)',
+              letterSpacing: '0.1em',
+            }}>
+            🏏 Let's Play
+          </button>
+          <p className="text-xs tracking-widest uppercase" style={{ color: 'rgba(232,232,240,0.25)' }}>
+            Sign in or create an account to continue
+          </p>
         </div>
       )}
 
