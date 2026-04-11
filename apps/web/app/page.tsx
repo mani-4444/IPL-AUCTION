@@ -349,7 +349,7 @@ export default function LandingPage() {
             }}>
             🏏 Let's Play
           </button>
-          <p className="text-xs tracking-widest uppercase" style={{ color: 'rgba(232,232,240,0.25)' }}>
+          <p className="text-sm tracking-wider" style={{ color: 'rgba(232,232,240,0.6)' }}>
             Sign in or create an account to continue
           </p>
         </div>
