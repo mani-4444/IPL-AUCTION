@@ -300,29 +300,53 @@ export default function LandingPage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
-      {/* Background orbs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-[0.04] blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #FF6B00, transparent)' }} />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-[0.03] blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #FFD700, transparent)' }} />
+
+      {/* Drifting background orbs */}
+      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-3xl pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #FF6B00, transparent)', opacity: 0.06, animation: 'orbDrift1 12s ease-in-out infinite' }} />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #FFD700, transparent)', opacity: 0.05, animation: 'orbDrift2 15s ease-in-out infinite' }} />
+      <div className="absolute top-[40%] right-[5%] w-[300px] h-[300px] rounded-full blur-3xl pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #FF6B00, transparent)', opacity: 0.03, animation: 'orbDrift1 18s ease-in-out infinite reverse' }} />
+
+      {/* Floating cricket balls */}
+      {[
+        { left: '8%',  delay: '0s',   dur: '9s',  size: '1rem'  },
+        { left: '20%', delay: '2.5s', dur: '11s', size: '0.7rem'},
+        { left: '55%', delay: '1s',   dur: '8s',  size: '0.9rem'},
+        { left: '72%', delay: '3.5s', dur: '13s', size: '0.6rem'},
+        { left: '88%', delay: '0.5s', dur: '10s', size: '0.8rem'},
+        { left: '40%', delay: '4s',   dur: '12s', size: '0.5rem'},
+      ].map((p, i) => (
+        <div key={i} className="absolute bottom-0 pointer-events-none select-none"
+          style={{ left: p.left, fontSize: p.size, animation: `floatUp ${p.dur} ease-in infinite`, animationDelay: p.delay, opacity: 0 }}>
+          🏏
+        </div>
+      ))}
 
       {/* Logo */}
       <div className="mb-12 text-center animate-slide-up">
         <div className="flex items-center justify-center gap-3 mb-2">
-          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, #FF6B00)' }} />
+          <div className="h-px" style={{ width: '3rem', background: 'linear-gradient(90deg, transparent, #FF6B00)', animation: 'linePulse 2.5s ease-in-out infinite' }} />
           <span className="text-xs font-semibold tracking-[0.3em] uppercase" style={{ color: '#FF6B00' }}>IPL 2026</span>
-          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, #FF6B00, transparent)' }} />
+          <div className="h-px" style={{ width: '3rem', background: 'linear-gradient(90deg, #FF6B00, transparent)', animation: 'linePulse 2.5s ease-in-out infinite' }} />
         </div>
         <h1 className="leading-none"
           style={{
             fontFamily: 'var(--font-bebas)',
             fontSize: 'clamp(5rem, 15vw, 9rem)',
-            color: '#FFD700',
-            textShadow: '0 0 60px rgba(255,215,0,0.3), 0 4px 0 rgba(255,107,0,0.5)',
+            background: 'linear-gradient(90deg, #FFD700 0%, #FFD700 35%, #fffbe0 50%, #FFD700 65%, #FFD700 100%)',
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            animation: 'shimmer 3.5s linear infinite, textGlow 3s ease-in-out infinite',
+            filter: 'drop-shadow(0 4px 0 rgba(255,107,0,0.5))',
           }}>
           AUCTION
         </h1>
-        <p className="mt-2 text-sm tracking-widest uppercase" style={{ color: 'rgba(232,232,240,0.45)' }}>
+        <p className="mt-2 text-sm tracking-widest uppercase"
+          style={{ color: 'rgba(232,232,240,0.55)', animation: 'fadeIn 1s ease forwards', animationDelay: '0.3s', opacity: 0 }}>
           Build Your Dream Team
         </p>
       </div>
@@ -336,19 +360,26 @@ export default function LandingPage() {
 
       {pageState === 'landing' && (
         <div className="flex flex-col items-center gap-5 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <button
-            onClick={() => setPageState('unauthenticated')}
-            className="px-16 py-5 rounded-2xl text-2xl tracking-widest uppercase transition-all duration-200 active:scale-95"
-            style={{
-              fontFamily: 'var(--font-bebas)',
-              background: 'linear-gradient(135deg, #FF6B00, #FF8C33)',
-              color: '#fff',
-              cursor: 'pointer',
-              boxShadow: '0 0 40px rgba(255,107,0,0.5), 0 8px 32px rgba(255,107,0,0.3)',
-              letterSpacing: '0.1em',
-            }}>
-            🏏 Let's Play
-          </button>
+          {/* Pulse rings + button */}
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{ animation: 'pulseRing 2s ease-out infinite', background: 'rgba(255,107,0,0.2)' }} />
+            <div className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{ animation: 'pulseRing 2s ease-out infinite', animationDelay: '0.7s', background: 'rgba(255,107,0,0.12)' }} />
+            <button
+              onClick={() => setPageState('unauthenticated')}
+              className="relative px-16 py-5 rounded-2xl text-2xl tracking-widest uppercase transition-all duration-200 active:scale-95"
+              style={{
+                fontFamily: 'var(--font-bebas)',
+                background: 'linear-gradient(135deg, #FF6B00, #FF8C33)',
+                color: '#fff',
+                cursor: 'pointer',
+                boxShadow: '0 0 40px rgba(255,107,0,0.5), 0 8px 32px rgba(255,107,0,0.3)',
+                letterSpacing: '0.1em',
+              }}>
+              🏏 Let's Play
+            </button>
+          </div>
           <p className="text-sm tracking-wider" style={{ color: 'rgba(232,232,240,0.6)' }}>
             Sign in or create an account to continue
           </p>
@@ -368,7 +399,7 @@ export default function LandingPage() {
         Max 10 teams · 100 Cr budget · 5 rounds
       </p>
 
-      <p className="mt-3 text-2xl tracking-widest uppercase"
+      <p className="mt-3 text-xl tracking-widest uppercase"
         style={{
           fontFamily: 'var(--font-bebas)',
           color: 'rgba(232,232,240,1)',
@@ -383,6 +414,38 @@ export default function LandingPage() {
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position:  200% center; }
+        }
+        @keyframes textGlow {
+          0%, 100% { filter: drop-shadow(0 4px 0 rgba(255,107,0,0.5)) drop-shadow(0 0 20px rgba(255,215,0,0.15)); }
+          50%       { filter: drop-shadow(0 4px 0 rgba(255,107,0,0.5)) drop-shadow(0 0 55px rgba(255,215,0,0.55)); }
+        }
+        @keyframes pulseRing {
+          0%   { transform: scale(1);   opacity: 0.75; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+        @keyframes floatUp {
+          0%   { transform: translateY(0)     rotate(0deg);   opacity: 0; }
+          8%   { opacity: 0.5; }
+          90%  { opacity: 0.2; }
+          100% { transform: translateY(-95vh) rotate(360deg); opacity: 0; }
+        }
+        @keyframes orbDrift1 {
+          0%, 100% { transform: translate(0px,   0px)  scale(1);    }
+          33%      { transform: translate(40px, -30px) scale(1.06); }
+          66%      { transform: translate(-25px, 20px) scale(0.94); }
+        }
+        @keyframes orbDrift2 {
+          0%, 100% { transform: translate(0px,   0px)   scale(1);    }
+          33%      { transform: translate(-35px,  25px)  scale(1.04); }
+          66%      { transform: translate(20px,  -20px)  scale(0.96); }
+        }
+        @keyframes linePulse {
+          0%, 100% { opacity: 0.4; }
+          50%      { opacity: 1;   }
         }
       `}</style>
     </main>
