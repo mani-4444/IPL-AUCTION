@@ -321,13 +321,8 @@ export default function LandingPage() {
           style={{
             fontFamily: 'var(--font-bebas)',
             fontSize: 'clamp(5rem, 15vw, 9rem)',
-            background: 'linear-gradient(90deg, #FFD700 0%, #FFD700 35%, #fffbe0 50%, #FFD700 65%, #FFD700 100%)',
-            backgroundSize: '200% auto',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            animation: 'shimmer 3.5s linear infinite',
-            filter: 'drop-shadow(0 4px 0 rgba(255,107,0,0.5))',
+            color: '#FFD700',
+            textShadow: '0 0 60px rgba(255,215,0,0.3), 0 4px 0 rgba(255,107,0,0.5)',
           }}>
           AUCTION
         </h1>
@@ -400,10 +395,6 @@ export default function LandingPage() {
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes shimmer {
-          0%   { background-position: -200% center; }
-          100% { background-position:  200% center; }
         }
         @keyframes pulseRing {
           0%   { transform: scale(1);   opacity: 0.75; }
