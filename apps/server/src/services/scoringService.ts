@@ -44,7 +44,7 @@ function calculateRoleBonus(
 
     // Check if this team's XI contains the best player
     if (bestPlayerId && xi.some((p) => p.id === bestPlayerId)) {
-      bonus += 2.5;
+      bonus += 12.5;
     }
   }
 
@@ -81,12 +81,12 @@ export function calculateFinalScore(team: Team, allTeams: Team[]): FinalScore {
       xiSum += p.rating;
     }
   }
-  const xiScore = (xiSum / 13) * 10;
+  const xiScore = xiSum / 13;
 
   // --- Bench Score (max 20) ---
   const benchSum = bench.reduce((s, p) => s + p.rating, 0);
   const benchAvg = bench.length > 0 ? benchSum / bench.length : 0;
-  const benchScore = benchAvg * 2;
+  const benchScore = (benchAvg / 100) * 30;
 
   // --- ROI (max 20, capped) ---
   const totalRating = [...xi, ...bench].reduce((s, p) => s + p.rating, 0);

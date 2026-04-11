@@ -189,9 +189,6 @@ export default function TeamSetupPage() {
                     <p className="font-semibold text-sm truncate" style={{ color: '#E8E8F0' }}>{player.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <RoleBadge role={player.role} size="xs" />
-                      <span className="text-xs" style={{ color: 'rgba(232,232,240,0.4)' }}>
-                        {player.rating}★
-                      </span>
                       <span className="text-xs" style={{ color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-mono)' }}>
                         ₹{player.soldPrice}
                       </span>
