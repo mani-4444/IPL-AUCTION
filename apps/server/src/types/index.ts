@@ -119,7 +119,9 @@ export interface SyncStatePayload {
   skipVotes: number;
   withdrawVotes: WithdrawVoteState;
   isPlayerClosed: boolean;
+  isPaused: boolean;
   timerSeconds: number;
+  roundCounts: Record<number, { total: number; remaining: number }>;
 }
 
 export interface ServerToClientEvents {
@@ -139,6 +141,8 @@ export interface ServerToClientEvents {
   'sync:state': (state: SyncStatePayload) => void;
   'auction:complete': () => void;
   'auction:round-counts': (counts: Record<number, { total: number; remaining: number }>) => void;
+  'auction:paused': () => void;
+  'auction:resumed': () => void;
   'team:xi-submitted': (teamId: string) => void;
   'results:ready': (teams: Team[]) => void;
   'error': (message: string) => void;

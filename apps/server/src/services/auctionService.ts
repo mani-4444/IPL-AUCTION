@@ -65,6 +65,7 @@ export interface SyncStatePayload {
   skipVotes: number;
   withdrawVotes: WithdrawVoteState;
   isPlayerClosed: boolean;
+  isPaused: boolean;
   timerSeconds: number;
   roundCounts: Record<number, { total: number; remaining: number }>;
 }
@@ -263,6 +264,7 @@ export function pauseAuction(io: IOServer, roomId: string): void {
   clearRoomTimer(roomId);
   bidTimerEndsAt.delete(roomId);
   pausedRooms.add(roomId);
+  io.to(roomId).emit('auction:paused');
   console.log(`Auction paused in room ${room.code}`);
 }
 
@@ -301,6 +303,7 @@ export function resumeAuction(io: IOServer, roomId: string): void {
   if (!room) return;
 
   pausedRooms.delete(roomId);
+  io.to(roomId).emit('auction:resumed');
 
   if (room.status === 'auction' && room.currentPlayer && !isPlayerClosed(roomId, room.currentPlayer.id)) {
     startBidTimer(io, roomId);
@@ -322,6 +325,7 @@ export function getSyncState(roomId: string): SyncStatePayload | null {
     skipVotes: skipVotes.get(roomId)?.size ?? 0,
     withdrawVotes: getWithdrawVoteState(room),
     isPlayerClosed: room.currentPlayer ? isPlayerClosed(roomId, room.currentPlayer.id) : false,
+    isPaused: pausedRooms.has(roomId),
     timerSeconds: getBidTimerSeconds(roomId, room.auctionConfig.bidTimerSeconds),
     roundCounts: getRoundCounts(roomId, room.currentRound),
   };

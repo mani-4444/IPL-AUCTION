@@ -153,8 +153,8 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
       const room = getRoom(roomId);
       if (!room) return;
 
-      // During team-setup: auto-submit XI instead of removing the team
-      if (room.status === 'team-setup') {
+      // During auction or team-setup: never remove the team — they can rejoin
+      if (room.status === 'auction' || room.status === 'team-setup') {
         const team = room.teams.find((t) => t.userId === userId);
         if (team && team.playingXI.length < 11 && team.players.length >= 11) {
           const sorted = [...team.players].sort((a, b) => b.rating - a.rating);

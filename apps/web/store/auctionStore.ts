@@ -147,6 +147,7 @@ export const useAuctionStore = create<AuctionState>((set) => ({
       withdrawEligible: state.withdrawVotes.eligible.length,
       withdrawVoteTeamIds: state.withdrawVotes.votes,
       isPlayerClosed: state.isPlayerClosed,
+      isPaused: state.isPaused,
       timerSeconds: state.timerSeconds,
       roundCounts: state.roundCounts,
     }),

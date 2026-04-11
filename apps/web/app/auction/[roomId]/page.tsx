@@ -81,6 +81,8 @@ export default function AuctionPage() {
       setShowUnsoldBanner(true);
       setTimeout(() => setShowUnsoldBanner(false), 2500);
     });
+    socket.on('auction:paused', () => setPaused(true));
+    socket.on('auction:resumed', () => setPaused(false));
     socket.on('auction:skip-votes', (votes: number, total: number) => setSkipVotes(votes, total));
     socket.on('auction:round-counts', (counts) => setRoundCounts(counts));
     socket.on('auction:bidding-started', (bid: Bid, withdrawState: WithdrawVoteState) => setBiddingStarted(bid, withdrawState));
@@ -94,6 +96,7 @@ export default function AuctionPage() {
       socket.off('auction:round-preview'); socket.off('auction:preview-tick');
       socket.off('auction:bid-placed'); socket.off('auction:timer-tick');
       socket.off('auction:player-sold'); socket.off('auction:player-unsold');
+      socket.off('auction:paused'); socket.off('auction:resumed');
       socket.off('auction:skip-votes'); socket.off('auction:round-counts');
       socket.off('auction:bidding-started'); socket.off('auction:withdraw-votes');
       socket.off('sync:state'); socket.off('auction:complete'); socket.off('error');
