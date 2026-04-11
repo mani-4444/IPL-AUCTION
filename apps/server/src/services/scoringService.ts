@@ -93,7 +93,7 @@ export function calculateFinalScore(team: Team, allTeams: Team[]): FinalScore {
   const totalSpent = team.budgetRemaining < 100
     ? 100 - team.budgetRemaining
     : 1; // Avoid division by zero
-  const roi = Math.min((totalRating / totalSpent) * 2, 20);
+  const roi = Math.min((totalRating / totalSpent) * 0.5, 20);
 
   // --- Penalties ---
   const hasWK = xi.some((p) => p.role === 'Wicketkeeper');
