@@ -9,6 +9,7 @@ import {
   pauseAuction,
   resumeAuction,
   skipRound,
+  onPreviewReady,
 } from '../services/auctionService';
 
 export function registerAuctionHandlers(io: IOServer, socket: IOSocket): void {
@@ -71,5 +72,10 @@ export function registerAuctionHandlers(io: IOServer, socket: IOSocket): void {
     if (!room) return;
     if (data.userId !== room.hostId) { socket.emit('error', 'Only the host can resume.'); return; }
     resumeAuction(io, room.id);
+  });
+
+  socket.on('auction:preview-ready', () => {
+    if (!data.roomId || !data.userId) return;
+    onPreviewReady(io, data.roomId, data.userId);
   });
 }

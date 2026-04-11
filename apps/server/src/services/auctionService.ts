@@ -28,6 +28,7 @@ const skipVotes = new Map<string, Set<string>>();
 const withdrawVotes = new Map<string, Set<string>>();
 const biddingStarted = new Map<string, boolean>();
 const bidTimerEndsAt = new Map<string, number>();
+const previewReadyVotes = new Map<string, Set<string>>();
 
 interface PreviewState {
   players: Player[];
@@ -112,6 +113,25 @@ export function nextPlayer(io: IOServer, roomId: string): void {
   io.to(roomId).emit('auction:player-up', player, room.currentRound);
   io.to(roomId).emit('auction:round-counts', getRoundCounts(roomId, room.currentRound));
   io.to(roomId).emit('room:updated', room);
+
+  // Auto-add skip votes for teams with full squads (they can't bid anyway)
+  const fullTeamIds = room.teams
+    .filter((t) => t.players.length >= room.auctionConfig.squadSize)
+    .map((t) => t.id);
+
+  if (fullTeamIds.length > 0) {
+    if (!skipVotes.has(roomId)) skipVotes.set(roomId, new Set());
+    const votes = skipVotes.get(roomId)!;
+    for (const id of fullTeamIds) votes.add(id);
+
+    if (votes.size >= room.teams.length) {
+      // Every team is full — skip this player automatically after broadcast delay
+      const delay = setTimeout(() => finalizePlayer(io, roomId, 'unsold'), PLAYER_BROADCAST_DELAY_MS);
+      setRoomTimer(roomId, delay as unknown as NodeJS.Timeout);
+      return;
+    }
+    io.to(roomId).emit('auction:skip-votes', votes.size, room.teams.length);
+  }
 
   const delay = setTimeout(() => startBidTimer(io, roomId), PLAYER_BROADCAST_DELAY_MS);
   setRoomTimer(roomId, delay as unknown as NodeJS.Timeout);
@@ -210,9 +230,15 @@ export function onSkip(io: IOServer, roomId: string, userId: string): void {
   if (!team) return;
 
   if (!skipVotes.has(roomId)) skipVotes.set(roomId, new Set());
-  skipVotes.get(roomId)!.add(team.id);
+  const voteSet = skipVotes.get(roomId)!;
+  voteSet.add(team.id);
 
-  const votes = skipVotes.get(roomId)!.size;
+  // Also auto-include any team whose squad is already full
+  for (const t of room.teams) {
+    if (t.players.length >= room.auctionConfig.squadSize) voteSet.add(t.id);
+  }
+
+  const votes = voteSet.size;
   const total = room.teams.length;
   io.to(roomId).emit('auction:skip-votes', votes, total);
   console.log(`Skip vote in ${room.code}: ${votes}/${total} (${team.teamName})`);
@@ -331,6 +357,45 @@ export function getSyncState(roomId: string): SyncStatePayload | null {
   };
 }
 
+export function onPreviewReady(io: IOServer, roomId: string, userId: string): void {
+  const room = getRoom(roomId);
+  if (!room || !activePreview.has(roomId)) return;
+
+  const team = room.teams.find((t) => t.userId === userId);
+  if (!team) return;
+
+  if (!previewReadyVotes.has(roomId)) previewReadyVotes.set(roomId, new Set());
+  previewReadyVotes.get(roomId)!.add(team.id);
+
+  const count = previewReadyVotes.get(roomId)!.size;
+  const total = room.teams.length;
+  io.to(roomId).emit('auction:preview-ready-votes', count, total);
+  console.log(`Preview ready in ${room.code}: ${count}/${total} (${team.teamName})`);
+
+  if (count >= total) {
+    // All teams ready — jump to 5-second countdown
+    clearRoomTimer(roomId);
+    activePreview.delete(roomId);
+    previewReadyVotes.delete(roomId);
+
+    let timeLeft = 5;
+    io.to(roomId).emit('auction:preview-tick', timeLeft);
+
+    const timer = setInterval(() => {
+      timeLeft--;
+      io.to(roomId).emit('auction:preview-tick', timeLeft);
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        const currentRoom = getRoom(roomId);
+        if (!currentRoom || currentRoom.status !== 'auction') return;
+        nextPlayer(io, roomId);
+      }
+    }, 1000);
+
+    setRoomTimer(roomId, timer as unknown as NodeJS.Timeout);
+  }
+}
+
 function startRoundWithPreview(io: IOServer, roomId: string): void {
   const room = getRoom(roomId);
   if (!room) return;
@@ -343,6 +408,8 @@ function startRoundWithPreview(io: IOServer, roomId: string): void {
 
   const players = getPlayersForRound(roomId, room.currentRound);
   const totalSeconds = ROUND_PREVIEW_MS / 1000;
+
+  previewReadyVotes.delete(roomId); // reset ready votes for new round
 
   activePreview.set(roomId, {
     players,
@@ -362,6 +429,7 @@ function startRoundWithPreview(io: IOServer, roomId: string): void {
     if (timeLeft <= 0) {
       clearInterval(timer);
       activePreview.delete(roomId);
+      previewReadyVotes.delete(roomId);
       const currentRoom = getRoom(roomId);
       if (!currentRoom || currentRoom.status !== 'auction') return;
       nextPlayer(io, roomId);

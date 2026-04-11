@@ -142,6 +142,7 @@ export interface ServerToClientEvents {
   'auction:round-counts': (counts: Record<number, { total: number; remaining: number }>) => void;
   'auction:paused': () => void;
   'auction:resumed': () => void;
+  'auction:preview-ready-votes': (count: number, total: number) => void;
   'team:xi-submitted': (teamId: string) => void;
   'results:ready': (teams: Team[]) => void;
   'error': (message: string) => void;
@@ -161,6 +162,7 @@ export interface ClientToServerEvents {
   'auction:skip': () => void;
   'auction:withdraw': () => void;
   'auction:skip-round': () => void;
+  'auction:preview-ready': () => void;
   'team:submit-xi': (data: {
     playingXI: string[];
     captain: string;

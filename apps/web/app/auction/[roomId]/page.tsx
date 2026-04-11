@@ -42,6 +42,8 @@ export default function AuctionPage() {
   const [confettiActive, setConfettiActive] = useState(false);
   const [previewCountdown, setPreviewCountdown] = useState(0);
   const [teamsExpanded, setTeamsExpanded] = useState(false);
+  const [previewReadyCount, setPreviewReadyCount] = useState(0);
+  const [myReady, setMyReady] = useState(false);
 
   const effectiveUserId = myUserId ?? loadSession()?.userId ?? null;
   const myTeam = room?.teams.find((t) => t.userId === effectiveUserId) ?? null;
@@ -66,6 +68,8 @@ export default function AuctionPage() {
     socket.on('auction:round-preview', (players: Player[], round: AuctionRound, seconds: number) => {
       setRoundPreview(players, round, seconds);
       setPreviewCountdown(seconds);
+      setPreviewReadyCount(0);
+      setMyReady(false);
     });
     socket.on('auction:preview-tick', (timeLeft: number) => setPreviewCountdown(timeLeft));
     socket.on('auction:bid-placed', (bid: Bid) => setCurrentBid(bid));
@@ -83,6 +87,7 @@ export default function AuctionPage() {
     });
     socket.on('auction:paused', () => setPaused(true));
     socket.on('auction:resumed', () => setPaused(false));
+    socket.on('auction:preview-ready-votes', (count: number) => setPreviewReadyCount(count));
     socket.on('auction:skip-votes', (votes: number, total: number) => setSkipVotes(votes, total));
     socket.on('auction:round-counts', (counts) => setRoundCounts(counts));
     socket.on('auction:bidding-started', (bid: Bid, withdrawState: WithdrawVoteState) => setBiddingStarted(bid, withdrawState));
@@ -97,6 +102,7 @@ export default function AuctionPage() {
       socket.off('auction:bid-placed'); socket.off('auction:timer-tick');
       socket.off('auction:player-sold'); socket.off('auction:player-unsold');
       socket.off('auction:paused'); socket.off('auction:resumed');
+      socket.off('auction:preview-ready-votes');
       socket.off('auction:skip-votes'); socket.off('auction:round-counts');
       socket.off('auction:bidding-started'); socket.off('auction:withdraw-votes');
       socket.off('sync:state'); socket.off('auction:complete'); socket.off('error');
@@ -113,6 +119,10 @@ export default function AuctionPage() {
     const socket = connectSocket();
     if (isPaused) { socket.emit('auction:resume'); setPaused(false); }
     else { socket.emit('auction:pause'); setPaused(true); }
+  }
+  function handlePreviewReady() {
+    setMyReady(true);
+    connectSocket().emit('auction:preview-ready');
   }
   function handleSkipRound() {
     if (!confirm(`Skip all remaining players in Round ${currentRound} and move to next round?`)) return;
@@ -209,6 +219,32 @@ export default function AuctionPage() {
         <div className="h-1 w-full" style={{ background: 'rgba(42,42,58,0.6)' }}>
           <div className="h-full transition-all duration-1000"
             style={{ width: `${(previewCountdown / roundPreviewSeconds) * 100}%`, background: 'linear-gradient(90deg, #FF6B00, #FFD700)' }} />
+        </div>
+
+        {/* Ready button */}
+        <div className="sticky bottom-0 px-4 py-4"
+          style={{ background: 'rgba(10,10,15,0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(42,42,58,0.6)' }}>
+          <div className="max-w-2xl mx-auto">
+            {myReady ? (
+              <div className="py-3 rounded-xl text-center text-sm font-semibold"
+                style={{ background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.3)', color: '#4ADE80' }}>
+                ✓ Ready — waiting for others ({previewReadyCount}/{room.teams.length})
+              </div>
+            ) : (
+              <button
+                onClick={handlePreviewReady}
+                className="w-full py-4 rounded-xl text-xl tracking-widest uppercase transition-all duration-200 active:scale-95"
+                style={{
+                  fontFamily: 'var(--font-bebas)',
+                  background: 'linear-gradient(135deg, #22C55E, #16A34A)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 24px rgba(34,197,94,0.35)',
+                }}>
+                ✓ Ready ({previewReadyCount}/{room.teams.length})
+              </button>
+            )}
+          </div>
         </div>
       </main>
     );
