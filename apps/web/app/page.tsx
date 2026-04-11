@@ -309,20 +309,6 @@ export default function LandingPage() {
       <div className="absolute top-[40%] right-[5%] w-[300px] h-[300px] rounded-full blur-3xl pointer-events-none"
         style={{ background: 'radial-gradient(circle, #FF6B00, transparent)', opacity: 0.03, animation: 'orbDrift1 18s ease-in-out infinite reverse' }} />
 
-      {/* Floating cricket balls */}
-      {[
-        { left: '8%',  delay: '0s',   dur: '9s',  size: '1rem'  },
-        { left: '20%', delay: '2.5s', dur: '11s', size: '0.7rem'},
-        { left: '55%', delay: '1s',   dur: '8s',  size: '0.9rem'},
-        { left: '72%', delay: '3.5s', dur: '13s', size: '0.6rem'},
-        { left: '88%', delay: '0.5s', dur: '10s', size: '0.8rem'},
-        { left: '40%', delay: '4s',   dur: '12s', size: '0.5rem'},
-      ].map((p, i) => (
-        <div key={i} className="absolute bottom-0 pointer-events-none select-none"
-          style={{ left: p.left, fontSize: p.size, animation: `floatUp ${p.dur} ease-in infinite`, animationDelay: p.delay, opacity: 0 }}>
-          🏏
-        </div>
-      ))}
 
       {/* Logo */}
       <div className="mb-12 text-center animate-slide-up">
@@ -340,7 +326,7 @@ export default function LandingPage() {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
-            animation: 'shimmer 3.5s linear infinite, textGlow 3s ease-in-out infinite',
+            animation: 'shimmer 3.5s linear infinite',
             filter: 'drop-shadow(0 4px 0 rgba(255,107,0,0.5))',
           }}>
           AUCTION
@@ -419,19 +405,9 @@ export default function LandingPage() {
           0%   { background-position: -200% center; }
           100% { background-position:  200% center; }
         }
-        @keyframes textGlow {
-          0%, 100% { filter: drop-shadow(0 4px 0 rgba(255,107,0,0.5)) drop-shadow(0 0 20px rgba(255,215,0,0.15)); }
-          50%       { filter: drop-shadow(0 4px 0 rgba(255,107,0,0.5)) drop-shadow(0 0 55px rgba(255,215,0,0.55)); }
-        }
         @keyframes pulseRing {
           0%   { transform: scale(1);   opacity: 0.75; }
           100% { transform: scale(1.8); opacity: 0; }
-        }
-        @keyframes floatUp {
-          0%   { transform: translateY(0)     rotate(0deg);   opacity: 0; }
-          8%   { opacity: 0.5; }
-          90%  { opacity: 0.2; }
-          100% { transform: translateY(-95vh) rotate(360deg); opacity: 0; }
         }
         @keyframes orbDrift1 {
           0%, 100% { transform: translate(0px,   0px)  scale(1);    }
