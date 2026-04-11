@@ -368,8 +368,9 @@ export default function LandingPage() {
         Max 10 teams · 100 Cr budget · 5 rounds
       </p>
 
-      <p className="mt-3 text-lg font-semibold tracking-widest"
+      <p className="mt-3 text-2xl tracking-widest uppercase"
         style={{
+          fontFamily: 'var(--font-bebas)',
           color: 'rgba(232,232,240,1)',
           animation: 'fadeIn 1.6s ease forwards',
           animationDelay: '0.6s',
