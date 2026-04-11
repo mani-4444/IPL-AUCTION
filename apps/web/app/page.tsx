@@ -364,13 +364,13 @@ export default function LandingPage() {
       )}
 
       <p className="mt-8 text-xs tracking-wider uppercase animate-slide-up"
-        style={{ color: 'rgba(232,232,240,0.2)', animationDelay: '0.16s' }}>
+        style={{ color: 'rgba(232,232,240,0.55)', animationDelay: '0.16s' }}>
         Max 10 teams · 100 Cr budget · 5 rounds
       </p>
 
       <p className="mt-3 text-xs tracking-widest"
         style={{
-          color: 'rgba(232,232,240,0.18)',
+          color: 'rgba(232,232,240,0.45)',
           animation: 'fadeIn 1.6s ease forwards',
           animationDelay: '0.6s',
           opacity: 0,
