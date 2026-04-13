@@ -579,6 +579,7 @@ function endRound(io: IOServer, roomId: string): void {
       void endAuction(io, roomId);
     } else {
       room.currentRound = 5;
+      clearClosedPlayers(roomId); // unblock previously-unsold players for round 5
       loadUnsoldRound(roomId);
       resetRoundIndex(roomId);
       io.to(roomId).emit('room:updated', room);
@@ -639,5 +640,16 @@ export function reEmitPreviewIfActive(io: IOServer, roomId: string): void {
     const secondsLeft = Math.max(0, Math.ceil((preview.endsAt - Date.now()) / 1000));
     io.to(roomId).emit('auction:round-preview', preview.players, preview.round, secondsLeft);
     io.to(roomId).emit('auction:preview-tick', secondsLeft);
+  }
+}
+
+export function restoreAuctionTimer(io: IOServer, roomId: string): void {
+  const room = getRoom(roomId);
+  if (!room || room.status !== 'auction') return;
+  if (bidTimerEndsAt.has(roomId)) return; // timer already running — do nothing
+
+  if (room.currentPlayer && !isPlayerClosed(roomId, room.currentPlayer.id)) {
+    pausedRooms.delete(roomId); // clear stale paused state from before restart
+    startBidTimer(io, roomId);
   }
 }

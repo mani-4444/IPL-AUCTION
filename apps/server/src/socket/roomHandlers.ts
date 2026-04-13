@@ -9,7 +9,7 @@ import {
   loadRoomFromDB,
 } from '../services/roomStore';
 import { calculateAllScores } from '../services/scoringService';
-import { getSyncState, reEmitPreviewIfActive } from '../services/auctionService';
+import { getSyncState, reEmitPreviewIfActive, restoreAuctionTimer } from '../services/auctionService';
 
 // Grace period before removing a disconnected player (30s)
 const DISCONNECT_GRACE_MS = 30_000;
@@ -124,6 +124,7 @@ export function registerRoomHandlers(io: IOServer, socket: IOSocket): void {
       socket.emit('sync:state', syncState);
     }
 
+    restoreAuctionTimer(io, room.id);
     console.log(`${team.userName} rejoined room ${room.code}`);
   });
 

@@ -240,6 +240,112 @@ function RoomCard({
   );
 }
 
+// ─── My Auctions ─────────────────────────────────────────────────────────────
+
+interface MyRoom {
+  roomId: string;
+  teamName: string;
+  code: string;
+  status: string;
+  currentRound: number;
+  createdAt: string;
+}
+
+function statusBadge(status: string) {
+  const map: Record<string, { label: string; color: string }> = {
+    waiting:    { label: 'Waiting',    color: 'rgba(100,116,139,0.8)' },
+    auction:    { label: 'Live',       color: 'rgba(34,197,94,0.8)' },
+    'team-setup': { label: 'Setup',   color: 'rgba(234,179,8,0.8)' },
+    results:    { label: 'Finished',   color: 'rgba(139,92,246,0.8)' },
+  };
+  const b = map[status] ?? { label: status, color: 'rgba(100,116,139,0.8)' };
+  return (
+    <span className="px-2 py-0.5 rounded text-xs font-semibold tracking-wider uppercase"
+      style={{ background: b.color, color: '#fff' }}>
+      {b.label}
+    </span>
+  );
+}
+
+function RoomHistoryCard({ room, onAction }: { room: MyRoom; onAction: () => void }) {
+  const isActive = room.status === 'auction' || room.status === 'team-setup';
+  const isResults = room.status === 'results';
+  const date = room.createdAt
+    ? new Date(room.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
+    : '';
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+      style={{ background: 'rgba(10,10,15,0.7)', border: '1px solid rgba(42,42,58,0.7)' }}>
+      <div className="flex flex-col gap-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-bold tracking-widest" style={{ color: '#FF6B00' }}>{room.code}</span>
+          {statusBadge(room.status)}
+        </div>
+        <span className="text-xs truncate" style={{ color: 'rgba(232,232,240,0.45)' }}>
+          {room.teamName} · Round {room.currentRound} · {date}
+        </span>
+      </div>
+      {(isActive || isResults) && (
+        <button
+          onClick={onAction}
+          className="ml-4 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wider uppercase shrink-0 transition-all duration-150 active:scale-95"
+          style={{
+            background: isResults ? 'rgba(139,92,246,0.2)' : 'rgba(255,107,0,0.2)',
+            border: `1px solid ${isResults ? 'rgba(139,92,246,0.5)' : 'rgba(255,107,0,0.5)'}`,
+            color: isResults ? '#c4b5fd' : '#FF8C33',
+            cursor: 'pointer',
+          }}>
+          {isResults ? 'Results' : 'Rejoin'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MyAuctions({ userId, onAction }: { userId: string; onAction: (roomId: string, status: string) => void }) {
+  const [rooms, setRooms] = useState<MyRoom[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('teams')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select('room_id, team_name, rooms(id, code, status, current_round, created_at)')
+      .eq('user_id', userId)
+      .order('created_at', { referencedTable: 'rooms', ascending: false })
+      .limit(8)
+      .then(({ data }) => {
+        if (!data) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped = (data as any[]).map((row) => ({
+          roomId: row.room_id as string,
+          teamName: row.team_name as string,
+          code: (row.rooms?.code ?? '') as string,
+          status: (row.rooms?.status ?? '') as string,
+          currentRound: (row.rooms?.current_round ?? 1) as number,
+          createdAt: (row.rooms?.created_at ?? '') as string,
+        })).filter((r) => r.code);
+        setRooms(mapped);
+      });
+  }, [userId]);
+
+  if (rooms.length === 0) return null;
+
+  return (
+    <div className="w-full max-w-md mt-6 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+      <p className="text-xs font-semibold tracking-widest uppercase mb-3"
+        style={{ color: 'rgba(232,232,240,0.35)' }}>
+        My Auctions
+      </p>
+      <div className="space-y-2">
+        {rooms.map((room) => (
+          <RoomHistoryCard key={room.roomId} room={room} onAction={() => onAction(room.roomId, room.status)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type PageState = 'checking' | 'landing' | 'unauthenticated' | 'authenticated';
@@ -296,6 +402,18 @@ export default function LandingPage() {
       saveSession({ roomId: room.id, userId, roomStatus: room.status });
     }
     router.push(`/room/${room.id}`);
+  }
+
+  function handleRejoin(roomId: string, status: string) {
+    if (!userId) return;
+    if (status === 'results') {
+      router.push(`/results/${roomId}`);
+      return;
+    }
+    saveSession({ roomId, userId, roomStatus: status as Room['status'] });
+    const socket = connectSocket();
+    socket.emit('room:rejoin', { roomId, userId });
+    // room:updated fired by server → RoomCard's listener → handleRoom → navigates
   }
 
   return (
@@ -372,7 +490,10 @@ export default function LandingPage() {
       )}
 
       {pageState === 'authenticated' && userId && (
-        <RoomCard userId={userId} onRoom={handleRoom} onSignOut={handleSignOut} />
+        <>
+          <RoomCard userId={userId} onRoom={handleRoom} onSignOut={handleSignOut} />
+          <MyAuctions userId={userId} onAction={handleRejoin} />
+        </>
       )}
 
       <p className="mt-8 text-xs tracking-wider uppercase animate-slide-up"
