@@ -581,6 +581,7 @@ export default function LandingPage() {
         }
       `}</style>
     </main>
+    
   );
 }
 

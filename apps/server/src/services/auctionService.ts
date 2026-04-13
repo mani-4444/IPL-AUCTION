@@ -20,6 +20,7 @@ import {
   loadUnsoldRound,
   skipRemainingInRound,
   getRoundCounts,
+  filterRoundPlayers,
 } from './playerService';
 import { supabase } from '../db/supabase';
 
@@ -29,6 +30,8 @@ const withdrawVotes = new Map<string, Set<string>>();
 const biddingStarted = new Map<string, boolean>();
 const bidTimerEndsAt = new Map<string, number>();
 const previewReadyVotes = new Map<string, Set<string>>();
+// teamId → Set of playerIds they want to bid on (submitted with Ready vote)
+const playerInterestVotes = new Map<string, Map<string, Set<string>>>();
 
 interface PreviewState {
   players: Player[];
@@ -357,12 +360,16 @@ export function getSyncState(roomId: string): SyncStatePayload | null {
   };
 }
 
-export function onPreviewReady(io: IOServer, roomId: string, userId: string): void {
+export function onPreviewReady(io: IOServer, roomId: string, userId: string, playerIds: string[]): void {
   const room = getRoom(roomId);
   if (!room || !activePreview.has(roomId)) return;
 
   const team = room.teams.find((t) => t.userId === userId);
   if (!team) return;
+
+  // Store this team's interest votes
+  if (!playerInterestVotes.has(roomId)) playerInterestVotes.set(roomId, new Map());
+  playerInterestVotes.get(roomId)!.set(team.id, new Set(playerIds));
 
   if (!previewReadyVotes.has(roomId)) previewReadyVotes.set(roomId, new Set());
   previewReadyVotes.get(roomId)!.add(team.id);
@@ -370,7 +377,7 @@ export function onPreviewReady(io: IOServer, roomId: string, userId: string): vo
   const count = previewReadyVotes.get(roomId)!.size;
   const total = room.teams.length;
   io.to(roomId).emit('auction:preview-ready-votes', count, total);
-  console.log(`Preview ready in ${room.code}: ${count}/${total} (${team.teamName})`);
+  console.log(`Preview ready in ${room.code}: ${count}/${total} (${team.teamName}) — ${playerIds.length} players selected`);
 
   if (count >= total) {
     // All teams ready — jump to 5-second countdown
@@ -388,12 +395,44 @@ export function onPreviewReady(io: IOServer, roomId: string, userId: string): vo
         clearInterval(timer);
         const currentRoom = getRoom(roomId);
         if (!currentRoom || currentRoom.status !== 'auction') return;
+        applyInterestFilter(io, roomId);
         nextPlayer(io, roomId);
       }
     }, 1000);
 
     setRoomTimer(roomId, timer as unknown as NodeJS.Timeout);
   }
+}
+
+/**
+ * Build the union of all submitted interest votes for the current round.
+ * Players not in the union are removed from the pool and added to the unsold
+ * list (so they appear in round 5). Round 5 itself is never filtered.
+ */
+function applyInterestFilter(io: IOServer, roomId: string): void {
+  const room = getRoom(roomId);
+  if (!room || room.currentRound === 5) return;
+
+  const votes = playerInterestVotes.get(roomId);
+  playerInterestVotes.delete(roomId);
+
+  if (!votes || votes.size === 0) return; // no one submitted → auction everything
+
+  // Union of all checked player IDs across all teams that voted
+  const interested = new Set<string>();
+  for (const ids of votes.values()) {
+    for (const id of ids) interested.add(id);
+  }
+
+  if (interested.size === 0) return; // safety: everyone unchecked all → no filter
+
+  const excluded = filterRoundPlayers(roomId, room.currentRound, interested);
+  if (excluded.length === 0) return;
+
+  for (const p of excluded) markPlayerUnsold(roomId, p);
+
+  io.to(roomId).emit('auction:round-counts', getRoundCounts(roomId, room.currentRound));
+  console.log(`Interest filter (round ${room.currentRound}, room ${room.code}): ${excluded.length} players skipped → added to round 5`);
 }
 
 function startRoundWithPreview(io: IOServer, roomId: string): void {
@@ -409,7 +448,8 @@ function startRoundWithPreview(io: IOServer, roomId: string): void {
   const players = getPlayersForRound(roomId, room.currentRound);
   const totalSeconds = ROUND_PREVIEW_MS / 1000;
 
-  previewReadyVotes.delete(roomId); // reset ready votes for new round
+  previewReadyVotes.delete(roomId);    // reset ready votes for new round
+  playerInterestVotes.delete(roomId);  // reset interest votes for new round
 
   activePreview.set(roomId, {
     players,
@@ -432,6 +472,7 @@ function startRoundWithPreview(io: IOServer, roomId: string): void {
       previewReadyVotes.delete(roomId);
       const currentRoom = getRoom(roomId);
       if (!currentRoom || currentRoom.status !== 'auction') return;
+      applyInterestFilter(io, roomId);
       nextPlayer(io, roomId);
     }
   }, 1000);

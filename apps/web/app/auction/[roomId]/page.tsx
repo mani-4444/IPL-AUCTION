@@ -44,6 +44,7 @@ export default function AuctionPage() {
   const [teamsExpanded, setTeamsExpanded] = useState(false);
   const [previewReadyCount, setPreviewReadyCount] = useState(0);
   const [myReady, setMyReady] = useState(false);
+  const [checkedPlayerIds, setCheckedPlayerIds] = useState<Set<string>>(new Set());
 
   const effectiveUserId = myUserId ?? loadSession()?.userId ?? null;
   const myTeam = room?.teams.find((t) => t.userId === effectiveUserId) ?? null;
@@ -70,6 +71,8 @@ export default function AuctionPage() {
       setPreviewCountdown(seconds);
       setPreviewReadyCount(0);
       setMyReady(false);
+      // Default: all players checked (teams uncheck ones they don't want)
+      setCheckedPlayerIds(new Set(players.map((p) => p.id)));
     });
     socket.on('auction:preview-tick', (timeLeft: number) => setPreviewCountdown(timeLeft));
     socket.on('auction:bid-placed', (bid: Bid) => setCurrentBid(bid));
@@ -120,9 +123,18 @@ export default function AuctionPage() {
     if (isPaused) { socket.emit('auction:resume'); setPaused(false); }
     else { socket.emit('auction:pause'); setPaused(true); }
   }
+  function handleTogglePlayer(playerId: string) {
+    setCheckedPlayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
+      return next;
+    });
+  }
+
   function handlePreviewReady() {
     setMyReady(true);
-    connectSocket().emit('auction:preview-ready');
+    connectSocket().emit('auction:preview-ready', Array.from(checkedPlayerIds));
   }
   function handleSkipRound() {
     if (!confirm(`Skip all remaining players in Round ${currentRound} and move to next round?`)) return;
@@ -197,23 +209,58 @@ export default function AuctionPage() {
           </div>
         </header>
         <div className="flex-1 overflow-y-auto px-4 py-5 max-w-2xl mx-auto w-full">
-          <p className="text-sm text-center mb-4" style={{ color: 'rgba(232,232,240,0.5)' }}>
-            {roundPreviewPlayers.length} players up for auction
-          </p>
+          {roundPreviewRound !== 5 ? (
+            <p className="text-sm text-center mb-4" style={{ color: 'rgba(232,232,240,0.5)' }}>
+              {myReady
+                ? `${checkedPlayerIds.size} / ${roundPreviewPlayers.length} selected for auction`
+                : `Tick players you want to bid on — uncheck to skip`}
+            </p>
+          ) : (
+            <p className="text-sm text-center mb-4" style={{ color: 'rgba(232,232,240,0.5)' }}>
+              {roundPreviewPlayers.length} unsold players up for re-auction
+            </p>
+          )}
           <div className="space-y-2">
-            {roundPreviewPlayers.map((p, i) => (
-              <div key={p.id} className="glass-bright rounded-xl px-4 py-3 flex items-center gap-3 animate-slide-up"
-                style={{ animationDelay: `${i * 0.03}s` }}>
-                <span className="text-xs w-5 text-right" style={{ color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
-                <RoleBadge role={p.role} size="sm" />
-                <span className="flex-1 font-semibold text-sm truncate" style={{ color: '#E8E8F0' }}>{p.name}</span>
-                {p.nationality === 'Overseas' && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-                    style={{ background: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: '1px solid rgba(56,189,248,0.3)' }}>OS</span>
-                )}
-                <span className="text-xs font-bold flex-shrink-0" style={{ color: '#FF6B00', fontFamily: 'var(--font-mono)' }}>₹{p.basePrice}</span>
-              </div>
-            ))}
+            {roundPreviewPlayers.map((p, i) => {
+              const checked = checkedPlayerIds.has(p.id);
+              const isUnsoldRound = roundPreviewRound === 5;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => !isUnsoldRound && !myReady && handleTogglePlayer(p.id)}
+                  className="glass-bright rounded-xl px-4 py-3 flex items-center gap-3 animate-slide-up transition-all duration-150"
+                  style={{
+                    animationDelay: `${i * 0.03}s`,
+                    opacity: !isUnsoldRound && !checked ? 0.4 : 1,
+                    cursor: isUnsoldRound || myReady ? 'default' : 'pointer',
+                    border: !isUnsoldRound && checked ? '1px solid rgba(34,197,94,0.35)' : '1px solid transparent',
+                  }}>
+                  {/* Checkbox — hidden for round 5 */}
+                  {!isUnsoldRound && (
+                    <div className="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-all duration-150"
+                      style={{
+                        background: checked ? '#22C55E' : 'rgba(232,232,240,0.08)',
+                        border: `2px solid ${checked ? '#22C55E' : 'rgba(232,232,240,0.2)'}`,
+                      }}>
+                      {checked && <span style={{ color: '#fff', fontSize: '11px', lineHeight: 1 }}>✓</span>}
+                    </div>
+                  )}
+                  {!isUnsoldRound && (
+                    <span className="text-xs w-4 text-right shrink-0" style={{ color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
+                  )}
+                  {isUnsoldRound && (
+                    <span className="text-xs w-5 text-right" style={{ color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
+                  )}
+                  <RoleBadge role={p.role} size="sm" />
+                  <span className="flex-1 font-semibold text-sm truncate" style={{ color: '#E8E8F0' }}>{p.name}</span>
+                  {p.nationality === 'Overseas' && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                      style={{ background: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: '1px solid rgba(56,189,248,0.3)' }}>OS</span>
+                  )}
+                  <span className="text-xs font-bold flex-shrink-0" style={{ color: '#FF6B00', fontFamily: 'var(--font-mono)' }}>₹{p.basePrice}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="h-1 w-full" style={{ background: 'rgba(42,42,58,0.6)' }}>
@@ -224,7 +271,23 @@ export default function AuctionPage() {
         {/* Ready button */}
         <div className="sticky bottom-0 px-4 py-4"
           style={{ background: 'rgba(10,10,15,0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(42,42,58,0.6)' }}>
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto flex flex-col gap-2">
+            {roundPreviewRound !== 5 && !myReady && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCheckedPlayerIds(new Set(roundPreviewPlayers.map((p) => p.id)))}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150"
+                  style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.25)', color: '#FFD700', cursor: 'pointer' }}>
+                  All
+                </button>
+                <button
+                  onClick={() => setCheckedPlayerIds(new Set())}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-all duration-150"
+                  style={{ background: 'rgba(232,232,240,0.06)', border: '1px solid rgba(232,232,240,0.15)', color: 'rgba(232,232,240,0.4)', cursor: 'pointer' }}>
+                  None
+                </button>
+              </div>
+            )}
             {myReady ? (
               <div className="py-3 rounded-xl text-center text-sm font-semibold"
                 style={{ background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.3)', color: '#4ADE80' }}>
@@ -241,7 +304,9 @@ export default function AuctionPage() {
                   cursor: 'pointer',
                   boxShadow: '0 4px 24px rgba(34,197,94,0.35)',
                 }}>
-                ✓ Ready ({previewReadyCount}/{room.teams.length})
+                {roundPreviewRound !== 5
+                  ? `✓ Ready · ${checkedPlayerIds.size} players (${previewReadyCount}/${room.teams.length})`
+                  : `✓ Ready (${previewReadyCount}/${room.teams.length})`}
               </button>
             )}
           </div>

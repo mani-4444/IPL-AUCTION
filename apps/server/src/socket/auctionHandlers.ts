@@ -74,8 +74,8 @@ export function registerAuctionHandlers(io: IOServer, socket: IOSocket): void {
     resumeAuction(io, room.id);
   });
 
-  socket.on('auction:preview-ready', () => {
+  socket.on('auction:preview-ready', (playerIds: string[]) => {
     if (!data.roomId || !data.userId) return;
-    onPreviewReady(io, data.roomId, data.userId);
+    onPreviewReady(io, data.roomId, data.userId, Array.isArray(playerIds) ? playerIds : []);
   });
 }

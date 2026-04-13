@@ -162,7 +162,7 @@ export interface ClientToServerEvents {
   'auction:skip': () => void;
   'auction:withdraw': () => void;
   'auction:skip-round': () => void;
-  'auction:preview-ready': () => void;
+  'auction:preview-ready': (playerIds: string[]) => void;
   'team:submit-xi': (data: {
     playingXI: string[];
     captain: string;

@@ -171,6 +171,35 @@ export function skipRemainingInRound(roomId: string, round: AuctionRound): Playe
   return remaining;
 }
 
+/**
+ * Remove players NOT in allowedPlayerIds from the round pool.
+ * Returns the excluded players so caller can mark them unsold.
+ * Does NOT apply to round 5.
+ */
+export function filterRoundPlayers(
+  roomId: string,
+  round: AuctionRound,
+  allowedPlayerIds: Set<string>
+): Player[] {
+  const pools = playerPools.get(roomId);
+  if (!pools || round === 5) return [];
+
+  const pool = pools.get(round) ?? [];
+  const allowed: Player[] = [];
+  const excluded: Player[] = [];
+
+  for (const p of pool) {
+    if (allowedPlayerIds.has(p.id)) {
+      allowed.push(p);
+    } else {
+      excluded.push(p);
+    }
+  }
+
+  pools.set(round, allowed);
+  return excluded;
+}
+
 export function cleanupRoom(roomId: string): void {
   playerPools.delete(roomId);
   unsoldPlayers.delete(roomId);
