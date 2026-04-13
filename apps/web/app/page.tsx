@@ -102,137 +102,177 @@ function AuthCard({ onAuth }: { onAuth: (userId: string) => void }) {
 
 // ─── Room screen ──────────────────────────────────────────────────────────────
 
-function RoomCard({
-  userId,
+// Modal form shown when Create or Join button is clicked
+function RoomFormModal({
+  mode,
+  onClose,
   onRoom,
-  onSignOut,
 }: {
-  userId: string;
+  mode: 'create' | 'join';
+  onClose: () => void;
   onRoom: (room: Room) => void;
-  onSignOut: () => void;
 }) {
   const [userName, setUserName] = useState('');
   const [teamName, setTeamName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [mode, setMode] = useState<'create' | 'join'>('create');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const socket = initSocket(userId);
-    if (!socket.connected) socket.connect();
-
     function handleRoom(room: Room) { onRoom(room); }
     function handleError(msg: string) { setError(msg); setLoading(false); }
-
+    const socket = connectSocket();
     socket.on('room:updated', handleRoom);
     socket.on('error', handleError);
     return () => {
       socket.off('room:updated', handleRoom);
       socket.off('error', handleError);
     };
-  }, [userId, onRoom]);
+  }, [onRoom]);
 
-  async function handleCreate() {
+  async function handleSubmit() {
     if (!userName.trim() || !teamName.trim()) {
       setError('Please enter your name and team name.');
       return;
     }
-    setError('');
-    setLoading(true);
-    const socket = connectSocket();
-    socket.emit('room:create', { userName: userName.trim(), teamName: teamName.trim() });
-  }
-
-  async function handleJoin() {
-    if (!userName.trim() || !teamName.trim() || !roomCode.trim()) {
-      setError('All fields are required to join a room.');
-      return;
-    }
-    if (roomCode.trim().length !== 6) {
-      setError('Room code must be 6 characters.');
-      return;
+    if (mode === 'join') {
+      if (!roomCode.trim()) { setError('Room code is required.'); return; }
+      if (roomCode.trim().length !== 6) { setError('Room code must be 6 characters.'); return; }
     }
     setError('');
     setLoading(true);
     const socket = connectSocket();
-    socket.emit('room:join', {
-      code: roomCode.trim().toUpperCase(),
-      userName: userName.trim(),
-      teamName: teamName.trim(),
-    });
+    if (mode === 'create') {
+      socket.emit('room:create', { userName: userName.trim(), teamName: teamName.trim() });
+    } else {
+      socket.emit('room:join', {
+        code: roomCode.trim().toUpperCase(),
+        userName: userName.trim(),
+        teamName: teamName.trim(),
+      });
+    }
   }
 
   return (
-    <div className="glass-bright rounded-2xl p-8 w-full max-w-md orange-glow animate-slide-up"
-      style={{ animationDelay: '0.08s' }}>
+    // Backdrop
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
 
-      {/* Mode switcher */}
-      <div className="flex rounded-xl overflow-hidden mb-8 p-1"
-        style={{ background: 'rgba(10,10,15,0.8)', border: '1px solid rgba(42,42,58,0.8)' }}>
-        {(['create', 'join'] as const).map((m) => (
-          <button key={m}
-            onClick={() => { setMode(m); setError(''); }}
-            className="flex-1 py-2.5 rounded-lg text-sm font-semibold tracking-widest uppercase transition-all duration-200"
-            style={{
-              background: mode === m ? '#FF6B00' : 'transparent',
-              color: mode === m ? '#fff' : 'rgba(232,232,240,0.45)',
-              cursor: 'pointer',
-            }}
-            aria-pressed={mode === m}>
-            {m === 'create' ? '+ Create' : '→ Join'}
+      {/* Sheet */}
+      <div className="glass-bright rounded-2xl p-7 w-full max-w-sm orange-glow animate-slide-up"
+        style={{ animationDelay: '0s' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 style={{ fontFamily: 'var(--font-bebas)', fontSize: '1.6rem', color: '#FFD700', letterSpacing: '0.08em' }}>
+            {mode === 'create' ? '+ Create Room' : '→ Join Room'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+            style={{ background: 'rgba(232,232,240,0.08)', color: 'rgba(232,232,240,0.45)', cursor: 'pointer' }}
+            aria-label="Close">
+            ✕
           </button>
-        ))}
-      </div>
-
-      <div className="space-y-4">
-        <InputField label="Your Name" value={userName} onChange={setUserName} placeholder="e.g. Rohit Sharma" />
-        <InputField label="Team Name" value={teamName} onChange={setTeamName} placeholder="e.g. Mumbai Mavericks" />
-        {mode === 'join' && (
-          <InputField
-            label="Room Code"
-            value={roomCode}
-            onChange={(v) => setRoomCode(v.toUpperCase())}
-            placeholder="ABC123"
-            maxLength={6}
-            mono
-          />
-        )}
-      </div>
-
-      {error && (
-        <div className="mt-4 px-4 py-3 rounded-lg text-sm font-medium"
-          style={{ background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)', color: '#F87171' }}>
-          {error}
         </div>
-      )}
 
-      <button
-        onClick={mode === 'create' ? handleCreate : handleJoin}
-        disabled={loading}
-        className="mt-6 w-full py-4 rounded-xl text-xl tracking-widest uppercase transition-all duration-200"
-        style={{
-          fontFamily: 'var(--font-bebas)',
-          background: loading ? 'rgba(255,107,0,0.4)' : 'linear-gradient(135deg, #FF6B00, #FF8C33)',
-          color: loading ? 'rgba(255,255,255,0.5)' : '#fff',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          boxShadow: loading ? 'none' : '0 4px 24px rgba(255,107,0,0.4)',
-        }}
-        aria-busy={loading}>
-        {loading
-          ? <Spinner label={mode === 'create' ? 'Creating...' : 'Joining...'} />
-          : mode === 'create' ? 'Create Room' : 'Join Room'}
-      </button>
+        <div className="space-y-4">
+          <InputField label="Your Name" value={userName} onChange={setUserName} placeholder="e.g. Rohit Sharma" />
+          <InputField label="Team Name" value={teamName} onChange={setTeamName} placeholder="e.g. Mumbai Mavericks" />
+          {mode === 'join' && (
+            <InputField
+              label="Room Code"
+              value={roomCode}
+              onChange={(v) => setRoomCode(v.toUpperCase())}
+              placeholder="ABC123"
+              maxLength={6}
+              mono
+            />
+          )}
+        </div>
 
-      {/* Sign out */}
+        {error && (
+          <div className="mt-4 px-4 py-3 rounded-lg text-sm font-medium"
+            style={{ background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)', color: '#F87171' }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="mt-5 w-full py-4 rounded-xl text-xl tracking-widest uppercase transition-all duration-200"
+          style={{
+            fontFamily: 'var(--font-bebas)',
+            background: loading ? 'rgba(255,107,0,0.4)' : 'linear-gradient(135deg, #FF6B00, #FF8C33)',
+            color: loading ? 'rgba(255,255,255,0.5)' : '#fff',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            boxShadow: loading ? 'none' : '0 4px 24px rgba(255,107,0,0.4)',
+          }}
+          aria-busy={loading}>
+          {loading
+            ? <Spinner label={mode === 'create' ? 'Creating...' : 'Joining...'} />
+            : mode === 'create' ? 'Create Room' : 'Join Room'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Action buttons shown when authenticated — two big buttons + sign out
+function RoomActions({
+  userId,
+  onMode,
+  onSignOut,
+}: {
+  userId: string;
+  onMode: (mode: 'create' | 'join') => void;
+  onSignOut: () => void;
+}) {
+  // Keep socket connected so room:rejoin response is received
+  useEffect(() => {
+    const socket = initSocket(userId);
+    if (!socket.connected) socket.connect();
+  }, [userId]);
+
+  return (
+    <div className="w-full max-w-md animate-slide-up" style={{ animationDelay: '0.08s' }}>
+      <div className="flex gap-3">
+        <button
+          onClick={() => onMode('create')}
+          className="flex-1 py-4 rounded-2xl text-lg tracking-widest uppercase transition-all duration-200 active:scale-95"
+          style={{
+            fontFamily: 'var(--font-bebas)',
+            background: 'linear-gradient(135deg, #FF6B00, #FF8C33)',
+            color: '#fff',
+            cursor: 'pointer',
+            boxShadow: '0 4px 24px rgba(255,107,0,0.35)',
+          }}>
+          + Create
+        </button>
+        <button
+          onClick={() => onMode('join')}
+          className="flex-1 py-4 rounded-2xl text-lg tracking-widest uppercase transition-all duration-200 active:scale-95"
+          style={{
+            fontFamily: 'var(--font-bebas)',
+            background: 'transparent',
+            color: '#FF8C33',
+            cursor: 'pointer',
+            border: '2px solid rgba(255,107,0,0.5)',
+          }}>
+          → Join
+        </button>
+      </div>
       <button
         onClick={onSignOut}
-        className="mt-4 w-full py-2 rounded-xl text-xs tracking-widest uppercase transition-all duration-200"
+        className="mt-3 w-full py-2 rounded-xl text-xs tracking-widest uppercase transition-all duration-200"
         style={{
           background: 'transparent',
-          color: 'rgba(232,232,240,0.25)',
+          color: 'rgba(232,232,240,0.2)',
           cursor: 'pointer',
-          border: '1px solid rgba(42,42,58,0.5)',
+          border: '1px solid rgba(42,42,58,0.4)',
         }}>
         Sign Out
       </button>
@@ -356,6 +396,7 @@ export default function LandingPage() {
 
   const [pageState, setPageState] = useState<PageState>('checking');
   const [userId, setUserId] = useState<string | null>(null);
+  const [roomMode, setRoomMode] = useState<'create' | 'join' | null>(null);
 
   // Check for existing Supabase session on mount
   useEffect(() => {
@@ -491,8 +532,11 @@ export default function LandingPage() {
 
       {pageState === 'authenticated' && userId && (
         <>
-          <RoomCard userId={userId} onRoom={handleRoom} onSignOut={handleSignOut} />
+          <RoomActions userId={userId} onMode={setRoomMode} onSignOut={handleSignOut} />
           <MyAuctions userId={userId} onAction={handleRejoin} />
+          {roomMode && (
+            <RoomFormModal mode={roomMode} onClose={() => setRoomMode(null)} onRoom={handleRoom} />
+          )}
         </>
       )}
 
